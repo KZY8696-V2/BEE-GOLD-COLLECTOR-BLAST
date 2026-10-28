@@ -29,7 +29,7 @@ jobs:
       - name: Compile C Code with LCC (MBC5, SGB & CGB Support)
         run: |
           # lcc kullanarak main.c dosyasını MBC5, Super Game Boy (-Wl-js) ve CGB uyumlu ROM'a derle
-          lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl-Wm -o bgc_blast.gb main.c
+          lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl-Wm -o bgc_blast.gb BGC-BLAST-GB.c
 
       - name: Upload Final Game Boy ROM Artifact
         uses: actions/upload-artifact@v4
