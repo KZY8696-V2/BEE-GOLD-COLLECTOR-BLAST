@@ -23,18 +23,11 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile C Code with LCC (SM83 Target & MBC5/SGB/CGB)
+      - name: Compile C Code with LCC
         run: |
-          # Kısa yolda çalışma dizini oluştur
-          New-Item -ItemType Directory -Force -Path "C:\temp"
-          Copy-Item "BGC-BLAST-GB.c" "C:\temp\BGC-BLAST-GB.c"
-          Set-Location "C:\temp"
-          
-          # Modern GBDK 2020 lcc komutu (Hedef mimariyi ve MBC/SGB/CGB ayarlarını doğrudan işler)
-          lcc -msm83 -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
-          
-          # Üretilen ROM'u ana klasöre taşı
-          Move-Item "bgc_blast.gb" "$env:GITHUB_WORKSPACE\bgc_blast.gb"
+          # Doğrudan ana klasörde, modern GBDK 2020 formatıyla derle
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
+
 
 
       - name: Upload Final Game Boy ROM Artifact
