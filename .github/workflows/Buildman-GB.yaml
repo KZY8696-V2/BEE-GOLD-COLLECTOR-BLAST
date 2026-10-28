@@ -23,14 +23,17 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Install RGBDS and Compile BGC-BLAST-GB.asm
+      - name: Install RGBDS, Download hardware.inc and Compile
         run: |
           choco install rgbds -y
           $env:Path += ";C:\ProgramData\chocolatey\bin"
 
+          # Resmi hardware.inc dosyasını gbdev reposundan otomatik indir
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
+
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 1. Doğru dosya adıyla Object Dosyasını Derle
+          # 1. Object Dosyasını Derle
           rgbasm -o main.o BGC-BLAST-GB.asm
 
           # 2. DMG Sürümü
