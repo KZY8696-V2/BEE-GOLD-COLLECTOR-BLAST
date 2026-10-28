@@ -23,24 +23,24 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Target-Specific & Universal Master ROMs (No lcc / Direct Toolchain)
+      - name: Compile Target-Specific & Universal Master ROMs (Direct Toolchain)
         run: |
           # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # GBDK kütüphane yolu
           $LIB_PATH = "C:\gbdk\lib\gb"
 
           # ---------------------------------------------------------
-          # 1. DMG Sürümü (Original Game Boy + SGB + Link)
+          # 1. DMG Sürümü
           # ---------------------------------------------------------
           Write-Output "Building DMG Version..."
           sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o dmg_main.rel
           sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel dmg_main.rel
+          # makebin'e giriş dosyası net olarak veriliyor:
           makebin -p -y -v dmg_main.ihx rom_outputs/bgc_blast_DMG.gb
 
           # ---------------------------------------------------------
-          # 2. CGB Sürümü (Game Boy Color + SGB + Link)
+          # 2. CGB Sürümü
           # ---------------------------------------------------------
           Write-Output "Building CGB Version..."
           sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o cgb_main.rel
@@ -48,7 +48,7 @@ jobs:
           makebin -p -y -v cgb_main.ihx rom_outputs/bgc_blast_CGB.gb
 
           # ---------------------------------------------------------
-          # 3. "ALL" Sürümü (Universal Master ROM for All Systems)
+          # 3. "ALL" Sürümü (Universal Master ROM)
           # ---------------------------------------------------------
           Write-Output "Building ALL Universal Master ROM..."
           sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o all_main.rel
