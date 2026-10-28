@@ -25,28 +25,34 @@ jobs:
 
       - name: Install RGBDS, Download hardware.inc and Compile
         run: |
-          choco install rgbds -y
-          $env:Path += ";C:\ProgramData\chocolatey\bin"
+            choco install rgbds -y
+            $env:Path += ";C:\ProgramData\chocolatey\bin"
 
-          # Resmi hardware.inc dosyasını gbdev reposundan otomatik indir
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
+            # curl ile hardware.inc dosyasını güvenli ve kesin bir şekilde indir
+            curl.exe -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
 
-          New-Item -ItemType Directory -Force -Path "rom_outputs"
+            # Dosyanın indirilip indirilmediğini kontrol et
+            if (!(Test-path "hardware.inc")) {
+                Write-Error "hardware.inc indirilemedi!"
+                exit 1
+            }
 
-          # 1. Object Dosyasını Derle
-          rgbasm -o main.o BGC-BLAST-GB.asm
+            New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 2. DMG Sürümü
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
-          rgbfix -v -p 0xFF -t "BGC BLAST DMG" -c -i 01 -k 01 rom_outputs/bgc_blast_DMG.gb
+            # 1. Object Dosyasını Derle
+            rgbasm -o main.o BGC-BLAST-GB.asm
 
-          # 3. CGB Sürümü
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
-          rgbfix -v -p 0xFF -t "BGC BLAST CGB" -C -i 01 -k 01 rom_outputs/bgc_blast_CGB.gb
+            # 2. DMG Sürümü
+            rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
+            rgbfix -v -p 0xFF -t "BGC BLAST DMG" -c -i 01 -k 01 rom_outputs/bgc_blast_DMG.gb
 
-          # 4. ALL Evrensel Master ROM Sürümü
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
-          rgbfix -v -p 0xFF -t "BGC BLAST ALL" -C -i 01 -k 01 rom_outputs/bgc_blast_ALL.gb
+            # 3. CGB Sürümü
+            rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
+            rgbfix -v -p 0xFF -t "BGC BLAST CGB" -C -i 01 -k 01 rom_outputs/bgc_blast_CGB.gb
+
+            # 4. ALL Evrensel Master ROM Sürümü
+            rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
+            rgbfix -v -p 0xFF -t "BGC BLAST ALL" -C -i 01 -k 01 rom_outputs/bgc_blast_ALL.gb
 
       - name: Upload Built ROM Artifacts
         uses: actions/upload-artifact@v4
