@@ -177,23 +177,51 @@ InitSystem:
     call InitPlanets
 
     ld hl, 16
-    ld a, l : ld [Player1PosX], a : ld a, h : ld [Player1PosX + 1], a
+    ld a, l 
+    ld [Player1PosX], a 
+    ld a, h 
+    ld [Player1PosX + 1], a
+    
     ld hl, 80
-    ld a, l : ld [Player1PosY], a : ld a, h : ld [Player1PosY + 1], a
+    ld a, l 
+    ld [Player1PosY], a 
+    ld a, h 
+    ld [Player1PosY + 1], a
+    
     ld hl, 136
-    ld a, l : ld [Player2PosX], a : ld a, h : ld [Player2PosX + 1], a
+    ld a, l 
+    ld [Player2PosX], a 
+    ld a, h 
+    ld [Player2PosX + 1], a
+    
     ld hl, 80
-    ld a, l : ld [Player2PosY], a : ld a, h : ld [Player2PosY + 1], a
+    ld a, l 
+    ld [Player2PosY], a 
+    ld a, h 
+    ld [Player2PosY + 1], a
     
     ld hl, 100
-    ld a, l : ld [Player1HP], a : ld a, h : ld [Player1HP + 1], a
-    ld a, l : ld [Player2HP], a : ld a, h : ld [Player2HP + 1], a
+    ld a, l 
+    ld [Player1HP], a 
+    ld a, h 
+    ld [Player1HP + 1], a
+    
+    ld a, l 
+    ld [Player2HP], a 
+    ld a, h 
+    ld [Player2HP + 1], a
     
     ld hl, 800
-    ld a, l : ld [BossHP], a : ld a, h : ld [BossHP + 1], a
+    ld a, l 
+    ld [BossHP], a 
+    ld a, h 
+    ld [BossHP + 1], a
     
     ld hl, VERSUS_REGEN_INTERVAL
-    ld a, l : ld [VersusRegenTimer], a : ld a, h : ld [VersusRegenTimer + 1], a
+    ld a, l 
+    ld [VersusRegenTimer], a 
+    ld a, h 
+    ld [VersusRegenTimer + 1], a
     ret
 
 InitPlanets:
@@ -201,17 +229,29 @@ InitPlanets:
     ld [hl], 1       
     inc hl
     ld de, 32        
-    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], e 
+    inc hl 
+    ld [hl], d 
+    inc hl
     ld de, 24        
-    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], e 
+    inc hl 
+    ld [hl], d 
+    inc hl
     
     ld hl, PlanetList + 6
     ld [hl], 1
     inc hl
     ld de, 128
-    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], e 
+    inc hl 
+    ld [hl], d 
+    inc hl
     ld de, 112
-    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], e 
+    inc hl 
+    ld [hl], d 
+    inc hl
     ret
 
 DetectHardwareAndPalettes:
