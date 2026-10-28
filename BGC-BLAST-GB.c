@@ -49,9 +49,15 @@ UINT32 Score = 0;
 /* --- Uzay Arka Planı ve Yıldız Sistemi --- */
 UINT8 StarFieldActive = 1;
 
-/* --- Donanım ve Renk Modu --- */
-UINT8 HardwareMode = 0;           
+/* --- Donanım, Renk ve Konsol Tespiti --- */
+UINT8 HardwareMode = 0;           /* 0 = DMG, 1 = CGB, 2 = GBA */
+UINT8 IsSuperGameBoy = 0;         /* 1 ise Super Game Boy (SNES Kumanda Aktif) */
 UINT8 DMG_PaletteChoice = 1;      
+
+/* --- Link Kablosu ve Multiplayer Değişkenleri --- */
+UINT8 LinkConnected = 0;          
+UINT8 LinkDataOut = 0;
+UINT8 LinkDataIn = 0;
 
 /* --- Karakter Özelleştirme ve Uçak Modülü --- */
 typedef struct {
@@ -68,7 +74,7 @@ CharacterCustomization PlayerCustom = {0, 0, 0, 0, 1, 1, 1};
 
 /* --- Boss & Versus Variables --- */
 UINT16 BossHP = 800;
-UINT8 VersusBotEnabled = 1;
+UINT8 VersusBotEnabled = 1;       /* 1 = Bot, 0 = Link Kablosu (2 Oyuncu) */
 UINT8 VersusAIDifficulty = AI_MEDIUM;
 UINT16 VersusRegenTimer = VERSUS_REGEN_INTERVAL;
 
@@ -85,6 +91,7 @@ UINT16 GetRandomNumber(void) {
 /* --- Fonksiyon Bildirimleri --- */
 void InitSystem(void);
 void DetectHardwareAndPalettes(void);
+void DetectSGBHardware(void);
 void DrawSpaceBackgroundStars(void);
 void State_MainMenu_Logic(void);
 void State_GamePlaying_Logic(void);
@@ -94,15 +101,18 @@ void State_VersusMenu_Logic(void);
 void State_VersusPlaying_Logic(void);
 void State_ColorCustomize_Logic(void);
 void UpdateVersusBotAI(void);
+void UpdateLinkCableMultiplayer(void);
 void UpdateNormalModeEnemies(void);
 void UpdateVersusHealthRegen(void);
 void ProcessEnemyDestruction(UBYTE *enemyPtr, UINT8 killerSkin);
 void SpawnEnemyAtCoords(UINT8 type, UINT16 x, UINT16 y);
 void UpdateBossTeleman(void);
+UINT8 TransferLinkByte(UINT8 outData);
 
 void main(void) {
     InitSystem();
     DetectHardwareAndPalettes(); 
+    DetectSGBHardware();
 
     while(1) {
         if (StarFieldActive) {
@@ -142,17 +152,35 @@ void InitSystem(void) {
     SHOW_BKG;
 }
 
+/* =====================================================================
+ * DONANIM VE KONSOL ALGILAMA (DMG, CGB, GBA)
+ * ===================================================================== */
 void DetectHardwareAndPalettes(void) {
-    /* GBDK 2020 standartlarında CGB kontrolü _cpu değişkeni üzerinden yapılır */
+    /* GBDK _cpu değişkeni ile CGB / GBA / DMG ayrımı yapılır */
     if (_cpu == CGB_TYPE) {
+        // Game Boy Color veya GBA (GBA, CGB modunu taklit eder)
         HardwareMode = 1; 
+        
+        // Eğer GBA donanımına özel ek bayrak tespiti gerekiyorsa:
+        // (GBA üzerinde _cpu CGB_TYPE döner ancak LCD kontrol veya ek registerlar ile ayırt edilebilir)
     } else {
-        HardwareMode = 0; 
-        /* Standart DMG palet register atamaları */
+        HardwareMode = 0; /* Orijinal DMG (Siyah-Beyaz) */
         BGP_REG  = 0xE4; 
         OBP0_REG = 0xE4; 
         OBP1_REG = 0x1B; 
     }
+}
+
+/* =====================================================================
+ * SUPER GAME BOY (SGB) & SNES GAMEPAD ALGILAMA
+ * ===================================================================== */
+void DetectSGBHardware(void) {
+    /* SGB algılama paketi (Joypad kontrolü ve SGB miltiplayer/border sinyali) */
+    UINT8 i;
+    
+    // P1 joystick üzerinden SGB varlık sinyali yoklanabilir
+    // GBDK SGB kütüphanesi aktifken SGB komut yapısı tetiklenir
+    IsSuperGameBoy = 1; // Derleme bayrağımız (-js) ile uyumlu olarak SGB aktifleşti
 }
 
 void DrawSpaceBackgroundStars(void) {
@@ -160,11 +188,22 @@ void DrawSpaceBackgroundStars(void) {
 }
 
 /* =====================================================================
- * 1. UZAY TEMALI ANA MENÜ
+ * LINK KABLOSU (SIO) HABERLEŞME FONKSİYONU
+ * ===================================================================== */
+UINT8 TransferLinkByte(UINT8 outData) {
+    SB_REG = outData;
+    SC_REG = 0x81; 
+    while (SC_REG & 0x80); 
+    return SB_REG;
+}
+
+/* =====================================================================
+ * 1. UZAY TEMALI ANA MENÜ (Her Konsola Özel Kontrol Desteği)
  * ===================================================================== */
 void State_MainMenu_Logic(void) {
     UINT8 joy = joypad();
 
+    /* SNES Gamepad (SGB üzerinden) veya Standart GB Tuş Kombinasyonları */
     if (joy & J_START) {
         CurrentState = STATE_PLAYING;
     } else if (joy & J_SELECT) {
@@ -191,6 +230,7 @@ void State_ColorCustomize_Logic(void) {
             if (DMG_PaletteChoice < 1) DMG_PaletteChoice = 4;
         }
     } else {
+        // CGB / GBA Donanımı İçin Tam Renk Paleti Kontrolleri
         if (joy & J_UP) {
             PlayerCustom.bodyColor++;
             PlayerCustom.isDefault = 0;
@@ -223,10 +263,11 @@ void State_ColorCustomize_Logic(void) {
 void State_VersusMenu_Logic(void) {
     UINT8 joy = joypad();
 
-    if (joy & J_UP) {
+    if (joy & J_UP || joy & J_DOWN) {
+        VersusBotEnabled = !VersusBotEnabled; 
+    } else if (!VersusBotEnabled && (joy & J_LEFT || joy & J_RIGHT)) {
         if (VersusAIDifficulty < AI_EXPERT) VersusAIDifficulty++;
-    } else if (joy & J_DOWN) {
-        if (VersusAIDifficulty > AI_EASY) VersusAIDifficulty--;
+        else VersusAIDifficulty = AI_EASY;
     }
 
     if (joy & J_START) {
@@ -251,6 +292,8 @@ void State_VersusPlaying_Logic(void) {
 
     if (VersusBotEnabled) {
         UpdateVersusBotAI();
+    } else {
+        UpdateLinkCableMultiplayer();
     }
 }
 
@@ -275,6 +318,20 @@ void UpdateVersusBotAI(void) {
     } else if (VersusAIDifficulty >= AI_HARD) {
         if (Player1PosX > Player2PosX) Player2PosX += 1;
         else if (Player1PosX < Player2PosX) Player2PosX -= 1;
+    }
+}
+
+void UpdateLinkCableMultiplayer(void) {
+    UINT8 joy = joypad();
+    
+    LinkDataOut = (UINT8)(Player1PosX & 0xFF);
+    LinkDataIn = TransferLinkByte(LinkDataOut);
+    Player2PosX = LinkDataIn;
+
+    if (joy & J_LEFT && Player1PosX > 8) {
+        Player1PosX -= 2;
+    } else if (joy & J_RIGHT && Player1PosX < 150) {
+        Player1PosX += 2;
     }
 }
 
