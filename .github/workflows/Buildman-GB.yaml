@@ -1,4 +1,4 @@
-name: KGAMER BGC Blast Complete Build (DMG, CGB, GBA & ALL)
+name: KGAMER BGC Blast Full Native Build (DMG, CGB & ALL)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-all-and-universal-roms:
+  build-native-roms:
     runs-on: windows-latest
 
     steps:
@@ -23,37 +23,40 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Target-Specific & ALL Universal ROMs (KGAMER Edition)
+      - name: Compile Target-Specific & Universal Master ROMs (No lcc / Direct Toolchain)
         run: |
           # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
+          # GBDK kütüphane yolu
+          $LIB_PATH = "C:\gbdk\lib\gb"
+
           # ---------------------------------------------------------
           # 1. DMG Sürümü (Original Game Boy + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o dmg_temp.ihx BGC-BLAST-GB.c
-          makebin -Z -ys -yt 0x1B -yo 4 -js dmg_temp.ihx rom_outputs/bgc_blast_DMG.gb
+          Write-Output "Building DMG Version..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o dmg_main.rel
+          sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel dmg_main.rel
+          makebin -p -y -v dmg_main.ihx rom_outputs/bgc_blast_DMG.gb
 
           # ---------------------------------------------------------
           # 2. CGB Sürümü (Game Boy Color + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o cgb_temp.ihx BGC-BLAST-GB.c
-          makebin -Z -yc -ys -yt 0x1B -yo 4 -js cgb_temp.ihx rom_outputs/bgc_blast_CGB.gb
+          Write-Output "Building CGB Version..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o cgb_main.rel
+          sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel cgb_main.rel
+          makebin -p -y -v cgb_main.ihx rom_outputs/bgc_blast_CGB.gb
 
           # ---------------------------------------------------------
-          # 3. GBA Sürümü (Game Boy Advance Optimized + SGB + Link)
+          # 3. "ALL" Sürümü (Universal Master ROM for All Systems)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yC -Wl-yt0x1B -Wl-yo4 -Wl-js -o gba_temp.ihx BGC-BLAST-GB.c
-          makebin -Z -yC -ys -yt 0x1B -yo 4 -js gba_temp.ihx rom_outputs/bgc_blast_GBA.gb
+          Write-Output "Building ALL Universal Master ROM..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o all_main.rel
+          sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel all_main.rel
+          makebin -p -y -v all_main.ihx rom_outputs/bgc_blast_ALL.gb
 
-          # ---------------------------------------------------------
-          # 4. "ALL" Sürümü (Universal Master ROM for All Systems)
-          # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o all_temp.ihx BGC-BLAST-GB.c
-          makebin -Z -yc -ys -yt 0x1B -yo 4 -js all_temp.ihx rom_outputs/bgc_blast_ALL.gb
-
-      - name: Upload All and Universal ROM Artifacts
+      - name: Upload Built ROM Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kgamer-bgc-blast-all-roms
+          name: kgamer-bgc-blast-native-roms
           path: rom_outputs/
