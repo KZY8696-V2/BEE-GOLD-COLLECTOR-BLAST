@@ -17,14 +17,14 @@
 #define AI_EXPERT               4
 
 /* --- Enemy Types --- */
-#define ENEMY_TYPE_ALIEN_BUG    1   /* Uzaylı Böcek (Yeşil Piksel Art) */
-#define ENEMY_TYPE_ROBO_BUG     2   /* Robot Böcek (Beyaz & Gri Piksel Art) */
-#define ENEMY_TYPE_UFO          3   /* Agresif UFO */
-#define ENEMY_TYPE_BOSS_TELEMAN 4   /* Patron Teleman */
+#define ENEMY_TYPE_ALIEN_BUG    1   /* Alien Bug (Green Pixel Art) */
+#define ENEMY_TYPE_ROBO_BUG     2   /* Robo Bug (White & Gray Pixel Art) */
+#define ENEMY_TYPE_UFO          3   /* Aggressive UFO */
+#define ENEMY_TYPE_BOSS_TELEMAN 4   /* Boss Teleman */
 
 /* --- Game Constants --- */
 #define MAX_PLAYER_HP           100
-#define VERSUS_REGEN_INTERVAL   300  /* 5 Saniye */
+#define VERSUS_REGEN_INTERVAL   300  /* 5 Seconds */
 #define VERSUS_REGEN_AMOUNT     5
 #define MAX_ENEMIES             16
 
@@ -46,20 +46,20 @@ UINT16 Player1HP = 100;
 UINT16 Player2HP = 100;
 UINT32 Score = 0;
 
-/* --- Uzay Arka Planı ve Yıldız Sistemi --- */
+/* --- Deep Space Background & Star System --- */
 UINT8 StarFieldActive = 1;
 
-/* --- Donanım, Renk ve Konsol Tespiti --- */
+/* --- Hardware, Color & Console Detection --- */
 UINT8 HardwareMode = 0;           /* 0 = DMG, 1 = CGB, 2 = GBA */
-UINT8 IsSuperGameBoy = 0;         /* 1 ise Super Game Boy (SNES Kumanda Aktif) */
+UINT8 IsSuperGameBoy = 0;         /* 1 if Super Game Boy (SNES Controller Active) */
 UINT8 DMG_PaletteChoice = 1;      
 
-/* --- Link Kablosu ve Multiplayer Değişkenleri --- */
+/* --- Link Cable & Multiplayer Variables --- */
 UINT8 LinkConnected = 0;          
 UINT8 LinkDataOut = 0;
 UINT8 LinkDataIn = 0;
 
-/* --- Karakter Özelleştirme ve Uçak Modülü --- */
+/* --- Character Customization & Ship Module --- */
 typedef struct {
     UINT8 bodyColor;      
     UINT8 stripeColor;    
@@ -74,7 +74,7 @@ CharacterCustomization PlayerCustom = {0, 0, 0, 0, 1, 1, 1};
 
 /* --- Boss & Versus Variables --- */
 UINT16 BossHP = 800;
-UINT8 VersusBotEnabled = 1;       /* 1 = Bot, 0 = Link Kablosu (2 Oyuncu) */
+UINT8 VersusBotEnabled = 1;       /* 1 = Bot, 0 = Link Cable (2 Players) */
 UINT8 VersusAIDifficulty = AI_MEDIUM;
 UINT16 VersusRegenTimer = VERSUS_REGEN_INTERVAL;
 
@@ -88,7 +88,7 @@ UINT16 GetRandomNumber(void) {
     return RandomSeed;
 }
 
-/* --- Fonksiyon Bildirimleri --- */
+/* --- Function Declarations --- */
 void InitSystem(void);
 void DetectHardwareAndPalettes(void);
 void DetectSGBHardware(void);
@@ -150,21 +150,22 @@ void InitSystem(void) {
     DISPLAY_ON;
     SHOW_SPRITES;
     SHOW_BKG;
+
+    /* --- KGAMER BOOT SCREEN LOGO & INITIALIZATION --- */
+    printf("\n");
+    printf("   === KGAMER ===   \n");
+    printf(" BGC-BLAST ENGINE v1\n");
+    printf(" SGB & LINK READY   \n");
 }
 
 /* =====================================================================
- * DONANIM VE KONSOL ALGILAMA (DMG, CGB, GBA)
+ * HARDWARE AND CONSOLE DETECTION (DMG, CGB, GBA)
  * ===================================================================== */
 void DetectHardwareAndPalettes(void) {
-    /* GBDK _cpu değişkeni ile CGB / GBA / DMG ayrımı yapılır */
     if (_cpu == CGB_TYPE) {
-        // Game Boy Color veya GBA (GBA, CGB modunu taklit eder)
-        HardwareMode = 1; 
-        
-        // Eğer GBA donanımına özel ek bayrak tespiti gerekiyorsa:
-        // (GBA üzerinde _cpu CGB_TYPE döner ancak LCD kontrol veya ek registerlar ile ayırt edilebilir)
+        HardwareMode = 1; /* Game Boy Color / GBA */
     } else {
-        HardwareMode = 0; /* Orijinal DMG (Siyah-Beyaz) */
+        HardwareMode = 0; /* Original DMG (Monochrome) */
         BGP_REG  = 0xE4; 
         OBP0_REG = 0xE4; 
         OBP1_REG = 0x1B; 
@@ -172,23 +173,18 @@ void DetectHardwareAndPalettes(void) {
 }
 
 /* =====================================================================
- * SUPER GAME BOY (SGB) & SNES GAMEPAD ALGILAMA
+ * SUPER GAME BOY (SGB) & SNES GAMEPAD DETECTION
  * ===================================================================== */
 void DetectSGBHardware(void) {
-    /* SGB algılama paketi (Joypad kontrolü ve SGB miltiplayer/border sinyali) */
-    UINT8 i;
-    
-    // P1 joystick üzerinden SGB varlık sinyali yoklanabilir
-    // GBDK SGB kütüphanesi aktifken SGB komut yapısı tetiklenir
-    IsSuperGameBoy = 1; // Derleme bayrağımız (-js) ile uyumlu olarak SGB aktifleşti
+    IsSuperGameBoy = 1; /* Enabled via compiler flag (-js) */
 }
 
 void DrawSpaceBackgroundStars(void) {
-    /* Derin uzay yıldız akış simülasyonu */
+    /* Deep space starflow simulation */
 }
 
 /* =====================================================================
- * LINK KABLOSU (SIO) HABERLEŞME FONKSİYONU
+ * LINK CABLE (SIO) COMMUNICATION FUNCTION
  * ===================================================================== */
 UINT8 TransferLinkByte(UINT8 outData) {
     SB_REG = outData;
@@ -198,12 +194,11 @@ UINT8 TransferLinkByte(UINT8 outData) {
 }
 
 /* =====================================================================
- * 1. UZAY TEMALI ANA MENÜ (Her Konsola Özel Kontrol Desteği)
+ * 1. SPACE-THEMED MAIN MENU
  * ===================================================================== */
 void State_MainMenu_Logic(void) {
     UINT8 joy = joypad();
 
-    /* SNES Gamepad (SGB üzerinden) veya Standart GB Tuş Kombinasyonları */
     if (joy & J_START) {
         CurrentState = STATE_PLAYING;
     } else if (joy & J_SELECT) {
@@ -216,7 +211,7 @@ void State_MainMenu_Logic(void) {
 }
 
 /* =====================================================================
- * 2. DETAYLI BOYAMA VE ÖZELLEŞTİRME MENÜSÜ
+ * 2. DETAILED CUSTOMIZATION MENU
  * ===================================================================== */
 void State_ColorCustomize_Logic(void) {
     UINT8 joy = joypad();
@@ -230,7 +225,6 @@ void State_ColorCustomize_Logic(void) {
             if (DMG_PaletteChoice < 1) DMG_PaletteChoice = 4;
         }
     } else {
-        // CGB / GBA Donanımı İçin Tam Renk Paleti Kontrolleri
         if (joy & J_UP) {
             PlayerCustom.bodyColor++;
             PlayerCustom.isDefault = 0;
@@ -336,7 +330,7 @@ void UpdateLinkCableMultiplayer(void) {
 }
 
 /* =====================================================================
- * 5. STANDARD UZAY SAVAŞI GAMEPLAY
+ * 5. STANDARD SPACE BATTLE GAMEPLAY
  * ===================================================================== */
 void State_GamePlaying_Logic(void) {
     UINT8 joy = joypad();
