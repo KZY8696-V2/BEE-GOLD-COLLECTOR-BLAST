@@ -23,27 +23,30 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Target-Specific & Universal Master ROMs (Official GBDK lcc Standard)
+      - name: Compile Target-Specific & Universal Master ROMs (Path-Safe lcc)
         run: |
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
           # ---------------------------------------------------------
-          # 1. DMG Sürümü (Orijinal Game Boy + SGB + MBC5)
+          # 1. DMG Sürümü
           # ---------------------------------------------------------
           Write-Output "Building DMG Version..."
-          C:\gbdk\bin\lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_DMG.gb BGC-BLAST-GB.c
+          C:\gbdk\bin\lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast_DMG.gb BGC-BLAST-GB.c
+          Move-Item -Force bgc_blast_DMG.gb rom_outputs/
 
           # ---------------------------------------------------------
-          # 2. CGB Sürümü (Game Boy Color + SGB + MBC5)
+          # 2. CGB Sürümü
           # ---------------------------------------------------------
           Write-Output "Building CGB Version..."
-          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_CGB.gb BGC-BLAST-GB.c
+          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast_CGB.gb BGC-BLAST-GB.c
+          Move-Item -Force bgc_blast_CGB.gb rom_outputs/
 
           # ---------------------------------------------------------
           # 3. ALL Sürümü (Evrensel Master ROM)
           # ---------------------------------------------------------
           Write-Output "Building ALL Universal Master ROM..."
-          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_ALL.gb BGC-BLAST-GB.c
+          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast_ALL.gb BGC-BLAST-GB.c
+          Move-Item -Force bgc_blast_ALL.gb rom_outputs/
 
       - name: Upload Built ROM Artifacts
         uses: actions/upload-artifact@v4
