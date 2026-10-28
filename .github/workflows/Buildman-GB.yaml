@@ -28,10 +28,18 @@ jobs:
           echo "$rgbdsPath" >> $env:GITHUB_PATH
           $env:Path += ";$rgbdsPath"
 
+          # hardware.inc dosyasının varlığını kontrol et, yoksa indir
+          if (!(Test-Path "hardware.inc")) {
+              Write-Host "hardware.inc bulunamadı, indiriliyor..."
+              Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
+          } else {
+              Write-Host "hardware.inc yerel repodan okunuyor."
+          }
+
           # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 1. Object Dosyasını Derle (hardware.inc artık repoda hazır)
+          # 1. Object Dosyasını Derle
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
           # 2. DMG Sürümü
@@ -45,6 +53,7 @@ jobs:
           # 4. ALL Evrensel Master ROM Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
           rgbfix -v -p 0xFF -t "BGC BLAST ALL" -C -i 01 -k 01 rom_outputs/bgc_blast_ALL.gb
+
 
       - name: Upload ROM Artifacts
         uses: actions/upload-artifact@v4
