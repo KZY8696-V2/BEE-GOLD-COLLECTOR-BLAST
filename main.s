@@ -5,7 +5,7 @@
 
     SECTION .text
 
-; --- Hardware & Memory Map Definitions (Motorola Syntax '$' format) ---
+; --- Hardware & Memory Map Definitions ---
 REG_P1_CTRL         EQU     $300001         ; Player 1 Joystick Address (A, B, C, D, Start, etc.)
 REG_VDP_VRAM        EQU     $3C0000         ; VDP VRAM Data Port
 REG_VDP_HSCROLL     EQU     $3C0002         ; VDP Horizontal Scroll Register
@@ -38,6 +38,11 @@ REGEN_AMOUNT        EQU     2               ; Health points restored per interva
 MAX_PLAYER_HP       EQU     100             ; Maximum health stacking cap
 MAX_ENEMIES         EQU     16              ; Max active enemies on screen
 SPRITE_SIZE_LARGE   EQU     64              ; 64x64 Pixel large sprite grid
+
+; --- Enemy Structure Offsets (Fixed Missing Definitions) ---
+X_POS               EQU     2
+Y_POS               EQU     4
+X_SPEED             EQU     6
 
     org     $000000                         ; Reset Vector
     dc.l    $0010f000                       ; Initial Stack Pointer
@@ -158,12 +163,11 @@ State_SkinSelect:
 ; ADVANCED SUBROUTINES & MECHANICS
 ; =====================================================================
 
-; --- Fixed-Point Silky Smooth Auto-Scrolling (Robust 8.8 Implementation) ---
+; --- Fixed-Point Silky Smooth Auto-Scrolling ---
 UpdateSmoothAutoScroll:
     move.w  (ScrollSubPixel),d0
     add.w   #$00C0,d0                       ; Add fractional step (0.75 pixels per frame)
     
-    ; Check if integer part rolled over (bit 8 or higher set)
     move.w  d0,d1
     and.w   #$FF00,d1                       ; Extract integer carry
     beq     .NoPixelMove
@@ -203,16 +207,14 @@ UpdatePlayerWeapon:
     cmp.b   #0,d0
     beq     .UpdateLaserWeapon              ; 0 = BGC Blast -> Fires Laser (White Robot)
     
-    ; 1 = Classic -> Water Trap & Medium Range Check (Yellow Body, Black Stripes)
     move.w  (WaterHangTimer),d0
     ble     .WaterExpired
     sub.w   #1,(WaterHangTimer)
-    bsr     UpdateWaterTrapCollisions       ; Instant kills UFOs and Robo Bugs on contact
+    bsr     UpdateWaterTrapCollisions
 .WaterExpired:
     rts
 
 .UpdateLaserWeapon:
-    ; BGC Blast Robot Bee Laser projectile update logic
     rts
 
 ; --- Water Trap Instant Kill Mechanics ---
@@ -234,8 +236,8 @@ UpdateWaterTrapCollisions:
     bsr     CheckHitboxIntersection
     tst.b   d0
     beq     .NextTrapCheck
-    move.b  #0,(a0)                         ; Instant kill enemy
-    add.w   #500,(Score)                    ; Bonus score
+    move.b  #0,(a0)
+    add.w   #500,(Score)
 
 .NextTrapCheck:
     lea     32(a0),a0
@@ -249,13 +251,13 @@ UpdateEnemies:
 ProcessUFODestruction:
     move.w  X_POS(a0),d2
     move.w  Y_POS(a0),d3
-    bsr     GetRandomNumber                 ; 0-99 RNG
+    bsr     GetRandomNumber
     
     cmp.w   #50,d0
-    blt     .UFO_SpawnAlienBug              ; 50% chance: Spawn Alien Bug
+    blt     .UFO_SpawnAlienBug
     cmp.w   #75,d0
-    blt     .UFO_ExplodeInside              ; 25% chance: Explode internally
-    bra     .UFO_FlyAway                    ; 25% chance: Fly away and escape
+    blt     .UFO_ExplodeInside
+    bra     .UFO_FlyAway
 
 .UFO_SpawnAlienBug:
     move.b  #0,(a0)
@@ -271,7 +273,6 @@ ProcessUFODestruction:
     move.w  #8,X_SPEED(a0)
     rts
 
-; --- Dual-Way High Score Saving (SRAM + Disk Backup) ---
 SaveHighScore:
     move.l  (Score),(SRAM_BASE_ADDR)
     bsr     WriteScoreToDisk
@@ -298,24 +299,20 @@ SpawnAlienBugAtCoords: rts
 WriteScoreToDisk: rts
 
 ; =====================================================================
-; DATA SECTION
+; DATA VARIABLES (Integrated directly to prevent section overlap)
 ; =====================================================================
-    SECTION .data
-
 CurrentState:           dc.b    STATE_MAIN_MENU
-PlayerSkin:             dc.b    0               ; 0 = BGC BLAST (White Robot, Red Eye, Laser), 1 = CLASSIC (Yellow/Black Bee, Water)
-AstronautHatEquipped:   dc.b    0               ; 0 = None, 1 = Space Helmet Equipped
+PlayerSkin:             dc.b    0
+AstronautHatEquipped:   dc.b    0
 PlayerPosX:             dc.w    0
 PlayerPosY:             dc.w    128
-PlayerHP:               dc.w    100             ; Starting Health
-RegenTimer:             dc.w    REGEN_INTERVAL  ; 7.5s Regeneration Timer
-WaterHangTimer:         dc.w    0               ; 3s Water Trap Hang Timer
+PlayerHP:               dc.w    100
+RegenTimer:             dc.w    REGEN_INTERVAL
+WaterHangTimer:         dc.w    0
 Score:                  dc.l    0
-BossHP:                 dc.w    800             ; Teleman Boss High HP Pool
+BossHP:                 dc.w    800
 BossState:              dc.b    BOSS_STATE_IDLE
-TelekinesisGlowActive:  dc.b    0               ; Boss Psychic Glow Flag
-
-; Smooth Scrolling Variables
-WorldScrollX:           dc.w    0               ; Full pixel world scroll position
-ScrollSubPixel:         dc.w    0               ; Fractional counter for silky smooth motion
-EnemyList:              ds.b    512             ; Enemy entities memory block
+TelekinesisGlowActive:  dc.b    0
+WorldScrollX:           dc.w    0
+ScrollSubPixel:         dc.w    0
+EnemyList:              ds.b    512
