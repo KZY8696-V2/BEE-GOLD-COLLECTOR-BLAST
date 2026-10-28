@@ -23,12 +23,12 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-            - name: Compile and Link ROMs with RGBDS (No IHX Errors)
+      - name: Compile and Link ROMs with RGBDS (No IHX Errors)
         run: |
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
           # 1. Object Dosyasını Derle
-          rgbasm -o main.o main.asm
+          rgbasm -o main.o BGC-BLAST-GB.asm
 
           # 2. DMG Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
