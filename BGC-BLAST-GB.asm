@@ -121,13 +121,26 @@ MainLoop:
     jr z, .st_color
     jr .endSwitch
 
-.st_main:   call State_MainMenu_Logic     : jr .endSwitch
-.st_play:   call State_GamePlaying_Logic  : jr .endSwitch
-.st_pause:  call State_GamePaused_Logic   : jr .endSwitch
-.st_skin:   call State_SkinSelect_Logic   : jr .endSwitch
-.st_vmenu:  call State_VersusMenu_Logic   : jr .endSwitch
-.st_vplay:  call State_VersusPlaying_Logic: jr .endSwitch
-.st_color:  call State_ColorCustomize_Logic
+.st_main:   
+    call State_MainMenu_Logic     
+    jr .endSwitch
+.st_play:   
+    call State_GamePlaying_Logic  
+    jr .endSwitch
+.st_pause:  
+    call State_GamePaused_Logic   
+    jr .endSwitch
+.st_skin:   
+    call State_SkinSelect_Logic   
+    jr .endSwitch
+.st_vmenu:  
+    call State_VersusMenu_Logic   
+    jr .endSwitch
+.st_vplay:  
+    call State_VersusPlaying_Logic 
+    jr .endSwitch
+.st_color:  
+    call State_ColorCustomize_Logic
 
 .endSwitch:
     call WaitVBlank
@@ -158,29 +171,29 @@ InitSystem:
     ld [PlayerSkin], a
     ld [BossActive], a ; Başlangıçta Teleman yok, sadece bozuk robotlar var
     
-    ld hl, METEOR_COOLDOWN_MAX
-    ld [TelemanMeteorTimer], hl
+    ld de, METEOR_COOLDOWN_MAX
+    ld [TelemanMeteorTimer], de
 
     ; Gezegenleri oluştur (Başlangıçta üzerlerinde hazır meteor yoktur)
     call InitPlanets
 
-    ld hl, 16
-    ld [Player1PosX], hl
-    ld hl, 80
-    ld [Player1PosY], hl
-    ld hl, 136
-    ld [Player2PosX], hl
-    ld hl, 80
-    ld [Player2PosY], hl
+    ld de, 16
+    ld [Player1PosX], de
+    ld de, 80
+    ld [Player1PosY], de
+    ld de, 136
+    ld [Player2PosX], de
+    ld de, 80
+    ld [Player2PosY], de
     
-    ld hl, 100
-    ld [Player1HP], hl
-    ld [Player2HP], hl
-    ld hl, 800
-    ld [BossHP], hl
+    ld de, 100
+    ld [Player1HP], de
+    ld [Player2HP], de
+    ld de, 800
+    ld [BossHP], de
     
-    ld hl, VERSUS_REGEN_INTERVAL
-    ld [VersusRegenTimer], hl
+    ld de, VERSUS_REGEN_INTERVAL
+    ld [VersusRegenTimer], de
     ret
 
 InitPlanets:
@@ -262,8 +275,8 @@ CheckAndSpawnTelemanMeteors:
     ret
 
 .telemanRipMeteorFromPlanet:
-    ld hl, METEOR_COOLDOWN_MAX
-    ld [TelemanMeteorTimer], hl
+    ld de, METEOR_COOLDOWN_MAX
+    ld [TelemanMeteorTimer], de
 
     ; Aktif gezegeni bul ve oradan meteor koparıp fırlat
     ld hl, PlanetList
@@ -320,10 +333,14 @@ SpawnEnemyAtCoords:
 State_MainMenu_Logic:
     ldh a, [rP1]
     ld b, a
-    bit 3, b : jr nz, .startPlay
-    bit 2, b : jr nz, .startVersusMenu
-    bit 0, b : jr nz, .startSkinSelect
-    bit 1, b : jr nz, .startColorCustomize
+    bit 3, b 
+    jr nz, .startPlay
+    bit 2, b 
+    jr nz, .startVersusMenu
+    bit 0, b 
+    jr nz, .startSkinSelect
+    bit 1, b 
+    jr nz, .startColorCustomize
     ret
 
 .startPlay:
@@ -347,8 +364,10 @@ State_MainMenu_Logic:
 State_SkinSelect_Logic:
     ldh a, [rP1]
     ld b, a
-    bit 0, b : jr nz, .toggleSkin
-    bit 3, b : jr nz, .returnMain
+    bit 0, b
+    jr nz, .toggleSkin
+    bit 3, b
+    jr nz, .returnMain
     ret
 .toggleSkin:
     ld a, [PlayerSkin]
@@ -366,9 +385,12 @@ State_VersusMenu_Logic:
 State_GamePaused_Logic:
     ldh a, [rP1]
     ld b, a
-    bit 6, b : jr nz, .cursorUp
-    bit 7, b : jr nz, .cursorDown
-    bit 0, b : jr nz, .confirmSelection
+    bit 6, b
+    jr nz, .cursorUp
+    bit 7, b
+    jr nz, .cursorDown
+    bit 0, b
+    jr nz, .confirmSelection
     ret
 .cursorUp:
     xor a
