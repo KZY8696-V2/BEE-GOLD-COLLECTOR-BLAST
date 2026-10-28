@@ -23,14 +23,32 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile with GBDK (Direct & Clean)
+      - name: Compile All Targets (DMG, CGB & ALL) Without LCC
         run: |
           New-Item -ItemType Directory -Force -Path "rom_outputs"
+          $LIB_PATH = "C:\gbdk\lib\gb"
 
-          # LCC yerine doğrudan GBDK'nın kendi dahili derleyicisini tertemiz çalıştırıyoruz:
-          C:\gbdk\bin\lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_DMG.gb BGC-BLAST-GB.c
-          C:\gbdk\bin\lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_CGB.gb BGC-BLAST-GB.c
-          C:\gbdk\bin\lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_ALL.gb BGC-BLAST-GB.c
+          # ---------------------------------------------------------
+          # 1. DMG Sürümü (Orijinal Game Boy)
+          # ---------------------------------------------------------
+          Write-Output "Building DMG Version..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -c BGC-BLAST-GB.c -o dmg_main.rel
+          sdldgb -m -w -i -y -Wl-js -Wl-yt0x1B -Wl-yo4 -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel dmg_main.rel rom_outputs/bgc_blast_DMG.gb
+
+          # ---------------------------------------------------------
+          # 2. CGB Sürümü (Game Boy Color Uyumlu)
+          # ---------------------------------------------------------
+          Write-Output "Building CGB Version..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -c BGC-BLAST-GB.c -o cgb_main.rel
+          sdldgb -m -w -i -y -Wl-js -Wl-yc -Wl-yt0x1B -Wl-yo4 -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel cgb_main.rel rom_outputs/bgc_blast_CGB.gb
+
+          # ---------------------------------------------------------
+          # 3. ALL Sürümü (Evrensel Master ROM)
+          # ---------------------------------------------------------
+          Write-Output "Building ALL Universal Version..."
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -c BGC-BLAST-GB.c -o all_main.rel
+          sdldgb -m -w -i -y -Wl-js -Wl-yc -Wl-yt0x1B -Wl-yo4 -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel all_main.rel rom_outputs/bgc_blast_ALL.gb
+
 
 
       - name: Upload Built ROM Artifacts
