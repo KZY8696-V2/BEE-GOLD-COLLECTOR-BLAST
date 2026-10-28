@@ -23,7 +23,7 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Target-Specific & Universal Master ROMs (Clean & Direct)
+      - name: Compile Target-Specific & Universal Master ROMs (Official GBDK lcc Standard)
         run: |
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
@@ -31,22 +31,19 @@ jobs:
           # 1. DMG Sürümü (Orijinal Game Boy + SGB + MBC5)
           # ---------------------------------------------------------
           Write-Output "Building DMG Version..."
-          sdcc -msm83 --no-std-crt0 --callee-saves-macro -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl"-b _CODE=0x0200" -Wl"-b _DATA=0xC000" -Lk C:\gbdk\lib\gb -lgbz80.lib crt0.rel BGC-BLAST-GB.c -o rom_outputs/bgc_blast_DMG.ihx
-          makebin -Z -yt 0x1B -yo 4 rom_outputs/bgc_blast_DMG.ihx rom_outputs/bgc_blast_DMG.gb
+          C:\gbdk\bin\lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_DMG.gb BGC-BLAST-GB.c
 
           # ---------------------------------------------------------
           # 2. CGB Sürümü (Game Boy Color + SGB + MBC5)
           # ---------------------------------------------------------
           Write-Output "Building CGB Version..."
-          sdcc -msm83 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl"-b _CODE=0x0200" -Wl"-b _DATA=0xC000" -Lk C:\gbdk\lib\gb -lgbz80.lib crt0.rel BGC-BLAST-GB.c -o rom_outputs/bgc_blast_CGB.ihx
-          makebin -Z -yc -yt 0x1B -yo 4 rom_outputs/bgc_blast_CGB.ihx rom_outputs/bgc_blast_CGB.gb
+          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_CGB.gb BGC-BLAST-GB.c
 
           # ---------------------------------------------------------
           # 3. ALL Sürümü (Evrensel Master ROM)
           # ---------------------------------------------------------
           Write-Output "Building ALL Universal Master ROM..."
-          sdcc -msm83 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl"-b _CODE=0x0200" -Wl"-b _DATA=0xC000" -Lk C:\gbdk\lib\gb -lgbz80.lib crt0.rel BGC-BLAST-GB.c -o rom_outputs/bgc_blast_ALL.ihx
-          makebin -Z -yc -yt 0x1B -yo 4 rom_outputs/bgc_blast_ALL.ihx rom_outputs/bgc_blast_ALL.gb
+          C:\gbdk\bin\lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_ALL.gb BGC-BLAST-GB.c
 
       - name: Upload Built ROM Artifacts
         uses: actions/upload-artifact@v4
