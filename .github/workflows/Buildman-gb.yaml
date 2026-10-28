@@ -25,8 +25,9 @@ jobs:
 
       - name: Compile C Code with LCC (MBC5, SGB & CGB Support)
         run: |
-          # main.c yerine BGC-BLAST-GB.c dosyasını derliyoruz
-          lcc -Wm-yc -Wm-ynBGCBLAST -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
+          # Ara dosya çakışmalarını önlemek için en kararlı lcc bayrak dizilimi
+          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
+
 
       - name: Upload Final Game Boy ROM Artifact
         uses: actions/upload-artifact@v4
