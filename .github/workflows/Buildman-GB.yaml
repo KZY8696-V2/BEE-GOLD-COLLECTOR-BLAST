@@ -23,7 +23,7 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Target-Specific & Universal Master ROMs (Direct Toolchain)
+      - name: Compile Target-Specific & Universal Master ROMs (Fixed makebin syntax)
         run: |
           # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
@@ -31,29 +31,30 @@ jobs:
           $LIB_PATH = "C:\gbdk\lib\gb"
 
           # ---------------------------------------------------------
-          # 1. DMG Sürümü
+          # 1. DMG Sürümü (MBC5, 4 ROM Banks, SGB)
           # ---------------------------------------------------------
           Write-Output "Building DMG Version..."
-          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o dmg_main.rel
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -c BGC-BLAST-GB.c -o dmg_main.rel
           sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel dmg_main.rel
-          # makebin'e giriş dosyası net olarak veriliyor:
-          makebin -p -y -v dmg_main.ihx rom_outputs/bgc_blast_DMG.gb
+          # makebin bayrakları ve sıra düzeltildi:
+          makebin -Z -yt 0x1B -yo 4 -js -v dmg_main.ihx rom_outputs/bgc_blast_DMG.gb
 
           # ---------------------------------------------------------
-          # 2. CGB Sürümü
+          # 2. CGB Sürümü (CGB Compatible, MBC5, 4 ROM Banks, SGB)
           # ---------------------------------------------------------
           Write-Output "Building CGB Version..."
-          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o cgb_main.rel
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -c BGC-BLAST-GB.c -o cgb_main.rel
           sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel cgb_main.rel
-          makebin -p -y -v cgb_main.ihx rom_outputs/bgc_blast_CGB.gb
+          makebin -Z -yc -yt 0x1B -yo 4 -js -v cgb_main.ihx rom_outputs/bgc_blast_CGB.gb
 
           # ---------------------------------------------------------
           # 3. "ALL" Sürümü (Universal Master ROM)
           # ---------------------------------------------------------
           Write-Output "Building ALL Universal Master ROM..."
-          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c -o all_main.rel
+          sdcc -mgbz80 --no-std-crt0 --callee-saves-macro -Wm-yc -c BGC-BLAST-GB.c -o all_main.rel
           sdldgb -m -w -i -y -b _CODE=0x0200 -b _DATA=0xC000 -k $LIB_PATH -lgbz80.lib crt0.rel all_main.rel
-          makebin -p -y -v all_main.ihx rom_outputs/bgc_blast_ALL.gb
+          makebin -Z -yc -yt 0x1B -yo 4 -js -v all_main.ihx rom_outputs/bgc_blast_ALL.gb
+
 
       - name: Upload Built ROM Artifacts
         uses: actions/upload-artifact@v4
