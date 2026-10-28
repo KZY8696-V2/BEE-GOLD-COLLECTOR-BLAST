@@ -1,4 +1,4 @@
-name: BGC Blast Multi-Target ROMs with Link & SGB
+name: KGAMER BGC Blast Complete Build (DMG, CGB, GBA & ALL)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-all-roms-link:
+  build-all-and-universal-roms:
     runs-on: windows-latest
 
     steps:
@@ -23,30 +23,29 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile Separate ROMs (Featuring SGB, SNES Gamepad & Link Cable Support)
+      - name: Compile Target-Specific & ALL Universal ROMs (KGAMER Edition)
         run: |
-          # Ortak Bayraklar:
-          # -Wl-js / -js -> Super Game Boy & SNES Controller protokolü
-          # -Wl-yt0x1B   -> MBC5 (Link skoru ve veri alışverişi için gereken ek RAM/ROM bankası desteği)
-          
-          # 1. Orijinal Game Boy (DMG) + SGB + Link Destekli Sürüm
-          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o dmg_link.ihx BGC-BLAST-GB.c
-          makebin -Z -ys -yt 0x1B -yo 4 -js dmg_link.ihx bgc_blast_dmg_link.gb
+          # Çıktı klasörünü oluştur
+          New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 2. Game Boy Color (CGB) + SGB + Link Destekli Sürüm
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o cgb_link.ihx BGC-BLAST-GB.c
-          makebin -Z -yc -ys -yt 0x1B -yo 4 -js cgb_link.ihx bgc_blast_gbc_link.gb
+          # 1. DMG Sürümü (Orijinal Game Boy + SGB + Link)
+          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o dmg_b.ihx BGC-BLAST-GB.c
+          makebin -Z -ys -yt 0x1B -yo 4 -js dmg_b.ihx rom_outputs/bgc_blast_DMG.gb
 
-          # 3. Game Boy Advance (GBA) + SGB + Link Destekli Sürüm (GBA link kablosu ve çoklu oyuncu hızlandırması tam uyumlu)
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o gba_link.ihx BGC-BLAST-GB.c
-          makebin -Z -yC -ys -yt 0x1B -yo 4 -js gba_link.ihx bgc_blast_gba_link.gb
+          # 2. CGB Sürümü (Game Boy Color + SGB + Link)
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o cgb_b.ihx BGC-BLAST-GB.c
+          makebin -Z -yc -ys -yt 0x1B -yo 4 -js cgb_b.ihx rom_outputs/bgc_blast_CGB.gb
 
-          # Çıktı klasörünü organize et
-          New-Item -ItemType Directory -Force -Path "build_output"
-          Move-Item "*.gb" "build_output\"
+          # 3. GBA Sürümü (Game Boy Advance Optimize + SGB + Link)
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o gba_b.ihx BGC-BLAST-GB.c
+          makebin -Z -yC -ys -yt 0x1B -yo 4 -js gba_b.ihx rom_outputs/bgc_blast_GBA.gb
 
-      - name: Upload Link-Enabled ROM Artifacts
+          # 4. "ALL" MANTIĞI: Tüm cihazlarda çalışan tek evrensel master ROM (KGAMER Universal)
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o all_b.ihx BGC-BLAST-GB.c
+          makebin -Z -yc -ys -yt 0x1B -yo 4 -js all_b.ihx rom_outputs/bgc_blast_ALL.gb
+
+      - name: Upload All and Universal ROM Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bgc-blast-link-and-sgb-roms
-          path: build_output/
+          name: kgamer-bgc-blast-all-roms
+          path: rom_outputs/
