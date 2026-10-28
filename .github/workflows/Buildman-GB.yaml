@@ -16,20 +16,17 @@ jobs:
         
       - name: Install RGBDS Manually and Compile ROMs
         run: |
-          # 1. Gerekli araçları kur
+      
+          # 1. Derleme için gerekli araçları kur
           sudo apt-get update
-          sudo apt-get install -y curl unzip
+          sudo apt-get install -y build-essential bison flex libpng-dev pkg-config curl git
 
-          # 2. Resmi RGBDS Linux binary paketini indir ve aç (v0.5.2 veya stabil sürüm)
-          curl -L -o rgbds.zip "https://github.com/gbdev/rgbds/releases/download/v0.5.2/rgbds-0.5.2-linux-amd64.tar.gz"
-          # Not: Eğer tar.gz ise direkt tar ile açalım:
-          curl -L -o rgbds.tar.gz "https://github.com/gbdev/rgbds/releases/download/v0.5.2/rgbds-0.5.2-linux-x86_64.tar.gz"
-          tar -xzf rgbds.tar.gz
-          
-          # Binary dosyalarını /usr/local/bin altına taşı ki her yerden erişilebilsin
-          sudo cp rgbds-*-linux-x86_64/rgbasm /usr/local/bin/
-          sudo cp rgbds-*-linux-x86_64/rgblink /usr/local/bin/
-          sudo cp rgbds-*-linux-x86_64/rgbfix /usr/local/bin/
+          # 2. RGBDS kaynak kodunu klonla ve derle
+          git clone --depth 1 --branch v0.5.2 https://github.com/gbdev/rgbds.git
+          cd rgbds
+          make -j$(nproc)
+          sudo make install
+          cd ..
 
           # 3. Resmi hardware.inc dosyasını indir
           curl -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
