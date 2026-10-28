@@ -158,18 +158,24 @@ State_SkinSelect:
 ; ADVANCED SUBROUTINES & MECHANICS
 ; =====================================================================
 
-; --- Fixed-Point Silky Smooth Auto-Scrolling ---
+; --- Fixed-Point Silky Smooth Auto-Scrolling (Robust 8.8 Implementation) ---
 UpdateSmoothAutoScroll:
     move.w  (ScrollSubPixel),d0
-    add.w   #$00C0,d0                       ; 8.8 Fixed-point fractional step
-    move.w  d0,(ScrollSubPixel)
-    ccr
-    bcc     .DoneScrollUpdate
+    add.w   #$00C0,d0                       ; Add fractional step (0.75 pixels per frame)
     
-    addq.w  #1,(WorldScrollX)               ; Advance full world pixel
-    addq.w  #1,(PlayerPosX)                 ; Move player forward with world flow
+    ; Check if integer part rolled over (bit 8 or higher set)
+    move.w  d0,d1
+    and.w   #$FF00,d1                       ; Extract integer carry
+    beq     .NoPixelMove
+    
+    lsr.w   #8,d1                           ; Shift integer part down
+    add.w   d1,(WorldScrollX)               ; Advance full world pixel
+    add.w   d1,(PlayerPosX)                 ; Move player forward with world flow
+    
+    and.w   #$00FF,d0                       ; Keep only fractional remainder
 
-.DoneScrollUpdate:
+.NoPixelMove:
+    move.w  d0,(ScrollSubPixel)
     move.w  (WorldScrollX),d0
     move.w  d0,(REG_VDP_HSCROLL)            ; Update Neo Geo VDP H-Scroll hardware register
     rts
