@@ -5,11 +5,11 @@
 
     SECTION .text
 
-; --- Hardware & Memory Map Definitions ---
-REG_P1_CTRL         EQU     0x300001        ; Player 1 Joystick Address (A, B, C, D, Start, etc.)
-REG_VDP_VRAM        EQU     0x3C0000        ; VDP VRAM Data Port
-REG_VDP_HSCROLL     EQU     0x3C0002        ; VDP Horizontal Scroll Register
-SRAM_BASE_ADDR      EQU     0x200000        ; Battery-backed SRAM Base Address
+; --- Hardware & Memory Map Definitions (Motorola Syntax '$' format) ---
+REG_P1_CTRL         EQU     $300001         ; Player 1 Joystick Address (A, B, C, D, Start, etc.)
+REG_VDP_VRAM        EQU     $3C0000         ; VDP VRAM Data Port
+REG_VDP_HSCROLL     EQU     $3C0002         ; VDP Horizontal Scroll Register
+SRAM_BASE_ADDR      EQU     $200000         ; Battery-backed SRAM Base Address
 
 ; --- Game States ---
 STATE_MAIN_MENU     EQU     0
@@ -39,12 +39,12 @@ MAX_PLAYER_HP       EQU     100             ; Maximum health stacking cap
 MAX_ENEMIES         EQU     16              ; Max active enemies on screen
 SPRITE_SIZE_LARGE   EQU     64              ; 64x64 Pixel large sprite grid
 
-    org     0x000000                        ; Reset Vector
-    dc.l    0x0010f000                      ; Initial Stack Pointer
+    org     $000000                         ; Reset Vector
+    dc.l    $0010f000                       ; Initial Stack Pointer
     dc.l    start                           ; Initial Program Counter
 
 start:
-    move.w  #0x2700,sr                      ; Disable Interrupts
+    move.w  #$2700,sr                       ; Disable Interrupts
     bsr     InitSystem
     bsr     LoadPixelArtAssets              ; Load large pixel art assets into VRAM
     bsr     LoadHighScore                   ; Read scores from SRAM and Disk
@@ -161,7 +161,7 @@ State_SkinSelect:
 ; --- Fixed-Point Silky Smooth Auto-Scrolling ---
 UpdateSmoothAutoScroll:
     move.w  (ScrollSubPixel),d0
-    add.w   #0x00C0,d0                      ; 8.8 Fixed-point fractional step
+    add.w   #$00C0,d0                       ; 8.8 Fixed-point fractional step
     move.w  d0,(ScrollSubPixel)
     ccr
     bcc     .DoneScrollUpdate
