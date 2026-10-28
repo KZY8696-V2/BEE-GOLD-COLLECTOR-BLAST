@@ -25,29 +25,32 @@ jobs:
 
       - name: Compile Target-Specific & ALL Universal ROMs (KGAMER Edition)
         run: |
-          # Create output directory
+          # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
           # ---------------------------------------------------------
-          # 1. DMG Version (Original Game Boy + SGB + Link)
-          # lcc doğrudan MBC5 (-Wl-yt0x1B), ROM bank (-Wl-yo4) ve SGB (-Wl-js) parametrelerini yönetir
+          # 1. DMG Sürümü (Original Game Boy + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_DMG.gb BGC-BLAST-GB.c
+          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o dmg_temp.ihx BGC-BLAST-GB.c
+          makebin -Z -ys -yt 0x1B -yo 4 -js dmg_temp.ihx rom_outputs/bgc_blast_DMG.gb
 
           # ---------------------------------------------------------
-          # 2. CGB Version (Game Boy Color + SGB + Link)
+          # 2. CGB Sürümü (Game Boy Color + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_CGB.gb BGC-BLAST-GB.c
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o cgb_temp.ihx BGC-BLAST-GB.c
+          makebin -Z -yc -ys -yt 0x1B -yo 4 -js cgb_temp.ihx rom_outputs/bgc_blast_CGB.gb
 
           # ---------------------------------------------------------
-          # 3. GBA Version (Game Boy Advance Optimized + SGB + Link)
+          # 3. GBA Sürümü (Game Boy Advance Optimized + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yC -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_GBA.gb BGC-BLAST-GB.c
+          lcc -msm83:gb -Wm-yC -Wl-yt0x1B -Wl-yo4 -Wl-js -o gba_temp.ihx BGC-BLAST-GB.c
+          makebin -Z -yC -ys -yt 0x1B -yo 4 -js gba_temp.ihx rom_outputs/bgc_blast_GBA.gb
 
           # ---------------------------------------------------------
-          # 4. "ALL" Version: Universal Master ROM for All Systems
+          # 4. "ALL" Sürümü (Universal Master ROM for All Systems)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_ALL.gb BGC-BLAST-GB.c
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o all_temp.ihx BGC-BLAST-GB.c
+          makebin -Z -yc -ys -yt 0x1B -yo 4 -js all_temp.ihx rom_outputs/bgc_blast_ALL.gb
 
       - name: Upload All and Universal ROM Artifacts
         uses: actions/upload-artifact@v4
