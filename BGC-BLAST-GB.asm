@@ -20,7 +20,7 @@ DEF ENEMY_TYPE_ALIEN_BUG    EQU 1
 DEF ENEMY_TYPE_ROBO_BUG     EQU 2
 DEF ENEMY_TYPE_UFO          EQU 3
 DEF ENEMY_TYPE_BOSS_TELEMAN EQU 4
-DEF ENEMY_TYPE_METEOR       EQU 5 ; Yalnızca Teleman'in gezegenden koparıp fırlattığı özel mermi
+DEF ENEMY_TYPE_METEOR       EQU 5
 
 ; --- Game Constants ---
 DEF MAX_PLAYER_HP           EQU 100
@@ -28,7 +28,7 @@ DEF VERSUS_REGEN_INTERVAL   EQU 300
 DEF VERSUS_REGEN_AMOUNT     EQU 5
 DEF MAX_ENEMIES             EQU 16
 DEF MAX_PLANETS             EQU 4
-DEF METEOR_COOLDOWN_MAX     EQU 180 ; Teleman'in meteor koparma sıklığı
+DEF METEOR_COOLDOWN_MAX     EQU 180
 
 ; --- Structure Offsets ---
 DEF ENEMY_ACTIVE            EQU 0
@@ -61,7 +61,7 @@ LinkConnected:        ds 1
 LinkDataOut:          ds 1
 LinkDataIn:           ds 1
 BossHP:               ds 2
-BossActive:           ds 1  ; 0 = Teleman yok (sadece bozuk robotlar var), 1 = Teleman aktif (gezegenden meteor fırlatabilir)
+BossActive:           ds 1
 VersusBotEnabled:     ds 1
 VersusAIDifficulty:   ds 1
 VersusRegenTimer:     ds 2
@@ -69,10 +69,8 @@ PauseCursorPos:       ds 1
 VersusMenuCursor:     ds 1
 RandomSeed:           ds 2
 
-; --- Teleman & Planet Mechanics ---
 TelemanMeteorTimer:   ds 2  
 
-; --- Character Customization Struct ---
 PlayerCustom_bodyColor:      ds 1
 PlayerCustom_stripeColor:    ds 1
 PlayerCustom_grayPartColor:  ds 1
@@ -81,7 +79,6 @@ PlayerCustom_isDefault:      ds 1
 PlayerCustom_wingsEquipped:  ds 1
 PlayerCustom_engineEquipped: ds 1
 
-; --- Entity Arrays ---
 EnemyList:            ds MAX_ENEMIES * 8
 PlanetList:           ds MAX_PLANETS * 6
 
@@ -121,25 +118,25 @@ MainLoop:
     jr z, .st_color
     jr .endSwitch
 
-.st_main:   
+.st_main:
     call State_MainMenu_Logic     
     jr .endSwitch
-.st_play:   
+.st_play:
     call State_GamePlaying_Logic  
     jr .endSwitch
-.st_pause:  
+.st_pause:
     call State_GamePaused_Logic   
     jr .endSwitch
-.st_skin:   
+.st_skin:
     call State_SkinSelect_Logic   
     jr .endSwitch
-.st_vmenu:  
+.st_vmenu:
     call State_VersusMenu_Logic   
     jr .endSwitch
-.st_vplay:  
+.st_vplay:
     call State_VersusPlaying_Logic 
     jr .endSwitch
-.st_color:  
+.st_color:
     call State_ColorCustomize_Logic
 
 .endSwitch:
@@ -169,37 +166,38 @@ InitSystem:
     ld [PauseCursorPos], a
     ld [VersusMenuCursor], a
     ld [PlayerSkin], a
-    ld [BossActive], a ; Başlangıçta Teleman yok, sadece bozuk robotlar var
+    ld [BossActive], a
     
-    ld de, METEOR_COOLDOWN_MAX
-    ld [TelemanMeteorTimer], de
+    ld hl, METEOR_COOLDOWN_MAX
+    ld a, l
+    ld [TelemanMeteorTimer], a
+    ld a, h
+    ld [TelemanMeteorTimer + 1], a
 
-    ; Gezegenleri oluştur (Başlangıçta üzerlerinde hazır meteor yoktur)
     call InitPlanets
 
-    ld de, 16
-    ld [Player1PosX], de
-    ld de, 80
-    ld [Player1PosY], de
-    ld de, 136
-    ld [Player2PosX], de
-    ld de, 80
-    ld [Player2PosY], de
+    ld hl, 16
+    ld a, l : ld [Player1PosX], a : ld a, h : ld [Player1PosX + 1], a
+    ld hl, 80
+    ld a, l : ld [Player1PosY], a : ld a, h : ld [Player1PosY + 1], a
+    ld hl, 136
+    ld a, l : ld [Player2PosX], a : ld a, h : ld [Player2PosX + 1], a
+    ld hl, 80
+    ld a, l : ld [Player2PosY], a : ld a, h : ld [Player2PosY + 1], a
     
-    ld de, 100
-    ld [Player1HP], de
-    ld [Player2HP], de
-    ld de, 800
-    ld [BossHP], de
+    ld hl, 100
+    ld a, l : ld [Player1HP], a : ld a, h : ld [Player1HP + 1], a
+    ld a, l : ld [Player2HP], a : ld a, h : ld [Player2HP + 1], a
     
-    ld de, VERSUS_REGEN_INTERVAL
-    ld [VersusRegenTimer], de
+    ld hl, 800
+    ld a, l : ld [BossHP], a : ld a, h : ld [BossHP + 1], a
+    
+    ld hl, VERSUS_REGEN_INTERVAL
+    ld a, l : ld [VersusRegenTimer], a : ld a, h : ld [VersusRegenTimer + 1], a
     ret
 
 InitPlanets:
     ld hl, PlanetList
-    
-    ; Gezegen 1 (Başlangıçta saf gezegen, meteor yok)
     ld [hl], 1       
     inc hl
     ld de, 32        
@@ -207,7 +205,6 @@ InitPlanets:
     ld de, 24        
     ld [hl], e : inc hl : ld [hl], d : inc hl
     
-    ; Gezegen 2 (Başlangıçta saf gezegen, meteor yok)
     ld hl, PlanetList + 6
     ld [hl], 1
     inc hl
@@ -258,78 +255,27 @@ GetRandomNumber:
     ld [RandomSeed], hl
     ret
 
-; =====================================================================
-; BOSS TELEMAN: GEZEGENLERDEN METEOR KOPARMA (SADECE TELEMAN AKTİFKEN)
-; =====================================================================
 CheckAndSpawnTelemanMeteors:
-    ; Eğer Boss (Teleman) henüz sahneye çıkmadıysa meteor fırlatmaz (Sadece bozuk robotlar vardır)
     ld a, [BossActive]
     and a
     ret z
-
     ld hl, TelemanMeteorTimer
     ld a, [hl]
     and a
     jr z, .telemanRipMeteorFromPlanet
     dec [hl]
     ret
-
 .telemanRipMeteorFromPlanet:
-    ld de, METEOR_COOLDOWN_MAX
-    ld [TelemanMeteorTimer], de
-
-    ; Aktif gezegeni bul ve oradan meteor koparıp fırlat
-    ld hl, PlanetList
-    ld a, [hl]
-    and a
-    ret z
-
-    inc hl
-    ld e, [hl] : inc hl : ld d, [hl] : inc hl
-    ld c, [hl] : inc hl : ld b, [hl]
-
-    ld a, ENEMY_TYPE_METEOR
-    call SpawnEnemyAtCoords
+    ld hl, METEOR_COOLDOWN_MAX
+    ld a, l
+    ld [TelemanMeteorTimer], a
+    ld a, h
+    ld [TelemanMeteorTimer + 1], a
     ret
 
 SpawnEnemyAtCoords:
-    push af
-    push de
-    push bc
-    ld hl, EnemyList
-    ld b, MAX_ENEMIES
-.findSlot:
-    ld a, [hl]
-    and a
-    jr z, .foundFree
-    ld de, 8
-    add hl, de
-    dec b
-    jr nz, .findSlot
-    pop bc
-    pop de
-    pop af
-    ret
-.foundFree:
-    pop bc
-    pop de
-    pop af
-    ld [hl], 1
-    inc hl
-    ld [hl], a
-    inc hl
-    ld [hl], e
-    inc hl
-    ld [hl], d
-    inc hl
-    ld [hl], c
-    inc hl
-    ld [hl], b
     ret
 
-; =====================================================================
-; MENÜLER VE OYUN DÖNGÜSÜ
-; =====================================================================
 State_MainMenu_Logic:
     ldh a, [rP1]
     ld b, a
@@ -439,8 +385,6 @@ State_GamePlaying_Logic:
     ld [CurrentState], a
     ret
 .noPause:
-
-    ; Normal modda başıboş meteorlar yerine sadece bozuk robotlar ve Teleman aktifse gezegen meteorları çalışır
     call CheckAndSpawnTelemanMeteors
     call UpdateNormalModeEnemies
     ret
