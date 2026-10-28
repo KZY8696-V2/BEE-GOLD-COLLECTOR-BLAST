@@ -20,7 +20,7 @@ jobs:
           # Chocolatey ile resmi Windows RGBDS paketini kur
           choco install rgbds -y
 
-          # RGBDS yolunu geçici olarak PATH'e ekle
+          # RGBDS yolunu PATH'e ekle
           $rgbdsPath = "C:\ProgramData\chocolatey\lib\rgbds\rgbds"
           if (!(Test-Path $rgbdsPath)) {
               $rgbdsPath = "C:\ProgramData\chocolatey\bin"
@@ -28,12 +28,10 @@ jobs:
           echo "$rgbdsPath" >> $env:GITHUB_PATH
           $env:Path += ";$rgbdsPath"
 
-          # Resmi hardware.inc dosyasını doğrudan indir
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
-
+          # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 1. Object Dosyasını Derle
+          # 1. Object Dosyasını Derle (hardware.inc artık repoda hazır)
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
           # 2. DMG Sürümü
