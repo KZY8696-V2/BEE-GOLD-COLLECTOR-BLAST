@@ -138,17 +138,20 @@ void main(void) {
 
 void InitSystem(void) {
     DISPLAY_ON;
-    SHOW_CANVAS;
+    SHOW_SPRITES;
+    SHOW_BKG;
 }
 
 void DetectHardwareAndPalettes(void) {
-    if (_cpu == GB_CPU_CGB) {
+    /* GBDK 2020 standartlarında CGB kontrolü _cpu değişkeni üzerinden yapılır */
+    if (_cpu == CGB_TYPE) {
         HardwareMode = 1; 
     } else {
         HardwareMode = 0; 
-        BURST_BGP(0xE4); 
-        BURST_OBP0(0xE4); 
-        BURST_OBP1(0x1B); 
+        /* Standart DMG palet register atamaları */
+        BGP_REG  = 0xE4; 
+        OBP0_REG = 0xE4; 
+        OBP1_REG = 0x1B; 
     }
 }
 
@@ -201,7 +204,6 @@ void State_ColorCustomize_Logic(void) {
             PlayerCustom.whitePartColor++;
             PlayerCustom.isDefault = 0;
         } else if (joy & J_SELECT) {
-            /* Varsayılan / İlk Halindeki Orijinal Görünüm */
             PlayerCustom.bodyColor = 0;
             PlayerCustom.stripeColor = 0;
             PlayerCustom.grayPartColor = 0;
@@ -303,41 +305,25 @@ void UpdateNormalModeEnemies(void) {
     }
 }
 
-/* =====================================================================
- * ÖLÜM EFEKTLERİ MİMARİSİ:
- * - BGC Blast:
- *   * Uzaylı Böcek vb. -> Standart Patlama
- *   * Robot Karakterler -> %50 Elektrik Çarpması, %50 Patlama (RNG)
- * - Classic:
- *   * Uzaylı Böcek -> Yeşil Slime / Su Patlaması
- *   * Robotlar / Teleman -> Elektrik Çarpmasıyla Yok Oluş
- * ===================================================================== */
 void ProcessEnemyDestruction(UBYTE *enemyPtr, UINT8 killerSkin) {
     UINT8 enemyType = *(enemyPtr + ENEMY_TYPE);
-    *(enemyPtr + ENEMY_ACTIVE) = 0; /* Düşmanı yok et */
+    *(enemyPtr + ENEMY_ACTIVE) = 0; 
 
     if (killerSkin == 0) {
-        /* BGC Blast Karakteri Tarafından Yok Edildi */
         if (enemyType == ENEMY_TYPE_ROBO_BUG) {
-            /* Robot Karakterler İçin %50 İhtimal (Elektrik vs Patlama) */
             UINT16 rng50 = GetRandomNumber() % 100;
             if (rng50 < 50) {
-                /* %50 Elektrik ile Çarpılarak Ölüm */
                 Score += 350;
             } else {
-                /* %50 Doğrudan Patlama */
                 Score += 250;
             }
         } else {
             Score += 250;
         }
     } else {
-        /* Classic Karakteri Tarafından Yok Edildi */
         if (enemyType == ENEMY_TYPE_ALIEN_BUG) {
-            /* Uzaylı Böcekler -> Yeşil Slime / Su Patlaması */
             Score += 200;
         } else {
-            /* Robot Böcekler veya Patron Teleman -> Elektrik Çarpması */
             Score += 400;
         }
     }
@@ -367,7 +353,7 @@ void State_GamePaused_Logic(void) {
 void State_SkinSelect_Logic(void) {
     UINT8 joy = joypad();
     if (joy & J_A) {
-        PlayerSkin = !PlayerSkin; /* BGC Blast (0) ve Classic (1) arasında geçiş */
+        PlayerSkin = !PlayerSkin; 
     } else if (joy & J_START) {
         CurrentState = STATE_MAIN_MENU;
     }
