@@ -2,7 +2,9 @@ name: KGAMER BGC Blast Complete Build (DMG, CGB, GBA & ALL)
 
 on:
   push:
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -28,27 +30,24 @@ jobs:
 
           # ---------------------------------------------------------
           # 1. DMG Version (Original Game Boy + SGB + Link)
+          # lcc doğrudan MBC5 (-Wl-yt0x1B), ROM bank (-Wl-yo4) ve SGB (-Wl-js) parametrelerini yönetir
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o BGC-BLAST-DMG.ihx BGC-BLAST-GB.c
-          makebin -Z -ys -yt 0x1B -yo 4 -js BGC-BLAST-DMG.ihx rom_outputs/bgc_blast_DMG.gb
+          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_DMG.gb BGC-BLAST-GB.c
 
           # ---------------------------------------------------------
           # 2. CGB Version (Game Boy Color + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o BGC-BLAST-CGB.ihx BGC-BLAST-GB.c
-          makebin -Z -yc -ys -yt 0x1B -yo 4 -js BGC-BLAST-CGB.ihx rom_outputs/bgc_blast_CGB.gb
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_CGB.gb BGC-BLAST-GB.c
 
           # ---------------------------------------------------------
           # 3. GBA Version (Game Boy Advance Optimized + SGB + Link)
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o BGC-BLAST-GBA.ihx BGC-BLAST-GB.c
-          makebin -Z -yC -ys -yt 0x1B -yo 4 -js BGC-BLAST-GBA.ihx rom_outputs/bgc_blast_GBA.gb
+          lcc -msm83:gb -Wm-yC -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_GBA.gb BGC-BLAST-GB.c
 
           # ---------------------------------------------------------
           # 4. "ALL" Version: Universal Master ROM for All Systems
           # ---------------------------------------------------------
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o BGC-BLAST-ALL.ihx BGC-BLAST-GB.c
-          makebin -Z -yc -ys -yt 0x1B -yo 4 -js BGC-BLAST-ALL.ihx rom_outputs/bgc_blast_ALL.gb
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o rom_outputs/bgc_blast_ALL.gb BGC-BLAST-GB.c
 
       - name: Upload All and Universal ROM Artifacts
         uses: actions/upload-artifact@v4
