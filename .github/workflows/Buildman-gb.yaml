@@ -25,14 +25,20 @@ jobs:
 
       - name: Compile C Code with LCC (MBC5, SGB & CGB Support)
         run: |
-          # Uzun yol ASlink (ihx) hatalarını önlemek için C:\temp içinde derleme
+          # C:\temp içine çalışma dizini kur
           New-Item -ItemType Directory -Force -Path "C:\temp"
           Copy-Item "BGC-BLAST-GB.c" "C:\temp\BGC-BLAST-GB.c"
-          
           Set-Location "C:\temp"
-          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
           
+          # 1. Adım: Sadece derleme ve linkleme yaparak .ihx / .o üret
+          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c
+          
+          # 2. Adım: İnce ayarlı linker ve makebin adımı ile bgc_blast.gb ROM'unu oluştur
+          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.o
+          
+          # Üretilen ROM'u ana klasöre taşı
           Move-Item "bgc_blast.gb" "$env:GITHUB_WORKSPACE\bgc_blast.gb"
+
 
       - name: Upload Final Game Boy ROM Artifact
         uses: actions/upload-artifact@v4
