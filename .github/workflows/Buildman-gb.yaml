@@ -23,18 +23,22 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile C Code with LCC (MBC5, SGB & CGB Support)
+      - name: Compile C Code Manually (SDCC + Makebin Pipeline)
         run: |
-          # C:\temp içine çalışma dizini kur
+          # Kısa yolda çalışma dizini oluştur
           New-Item -ItemType Directory -Force -Path "C:\temp"
           Copy-Item "BGC-BLAST-GB.c" "C:\temp\BGC-BLAST-GB.c"
           Set-Location "C:\temp"
           
-          # 1. Adım: Sadece derleme ve linkleme yaparak .ihx / .o üret
-          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c
+          # 1. Adım: SDCC ile C kodunu Game Boy z80 mimarisi için derle (.asm üretir)
+          sdcc -mgbz80 --no-std-crt0 -Wl-yt0x1B -Wl-yo4 -Wl-js -c BGC-BLAST-GB.c
           
-          # 2. Adım: İnce ayarlı linker ve makebin adımı ile bgc_blast.gb ROM'unu oluştur
-          lcc -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.o
+          # 2. Adım: Crt0 ve kütüphaneleri bağlayarak .ihx dosyasını üret
+          # GBDK crt0_gb.s ve kütüphanelerini bağlıyoruz
+          sdldgb -nf BGC-BLAST-GB
+          
+          # 3. Adım: makebin ile .ihx dosyasını .gb ROM formatına dönüştür
+          makebin -w -y -yt 0x1B -yo 4 -js BGC-BLAST-GB.ihx bgc_blast.gb
           
           # Üretilen ROM'u ana klasöre taşı
           Move-Item "bgc_blast.gb" "$env:GITHUB_WORKSPACE\bgc_blast.gb"
