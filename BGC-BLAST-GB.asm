@@ -26,16 +26,24 @@ DEF MAX_PLAYER_HP           EQU 100
 DEF VERSUS_REGEN_INTERVAL   EQU 300
 DEF VERSUS_REGEN_AMOUNT     EQU 5
 DEF MAX_ENEMIES             EQU 16
+DEF MAX_PLANETS             EQU 4
+DEF METEOR_COOLDOWN_MAX     EQU 180 ; 3 Saniyede bir meteor fırlatır
 
-; --- Enemy Structure Offsets ---
+; --- Structure Offsets ---
 DEF ENEMY_ACTIVE            EQU 0
 DEF ENEMY_TYPE              EQU 1
 DEF ENEMY_X_POS             EQU 2
 DEF ENEMY_Y_POS             EQU 4
 
+DEF PLANET_ACTIVE           EQU 0
+DEF PLANET_X_POS            EQU 1
+DEF PLANET_Y_POS            EQU 3
+DEF PLANET_HAS_METEOR       EQU 5 ; 1 = Koparılacak meteor var, 0 = Çıplak gezegen
+
 ; --- Variables Section (WRAM) ---
 SECTION "GameVariables", WRAM0
 CurrentState:         ds 1
+PreviousState:        ds 1
 PlayerSkin:           ds 1
 AstronautHatEquipped: ds 1
 Player1PosX:          ds 2
@@ -56,7 +64,13 @@ BossHP:               ds 2
 VersusBotEnabled:     ds 1
 VersusAIDifficulty:   ds 1
 VersusRegenTimer:     ds 2
+PauseCursorPos:       ds 1
+VersusMenuCursor:     ds 1
 RandomSeed:           ds 2
+
+; --- Teleman & Planet Mechanics ---
+TelemanMeteorTimer:   ds 2  ; Meteor fırlatma sayacı
+TelemanTargetPlanet:  ds 1  ; Hangi gezegenden meteor koparılacak
 
 ; --- Character Customization Struct ---
 PlayerCustom_bodyColor:      ds 1
@@ -67,8 +81,9 @@ PlayerCustom_isDefault:      ds 1
 PlayerCustom_wingsEquipped:  ds 1
 PlayerCustom_engineEquipped: ds 1
 
-; --- Enemy List Array (16 enemies * 8 bytes) ---
+; --- Entity Arrays ---
 EnemyList:            ds MAX_ENEMIES * 8
+PlanetList:           ds MAX_PLANETS * 6
 
 ; --- ROM Header & Entry Point ---
 SECTION "Header", ROM0[$0100]
@@ -119,7 +134,7 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION & HARDWARE
+; SYSTEM INITIALIZATION
 ; =====================================================================
 InitSystem:
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
@@ -127,6 +142,8 @@ InitSystem:
     
     ld a, STATE_MAIN_MENU
     ld [CurrentState], a
+    ld a, STATE_PLAYING
+    ld [PreviousState], a
     ld a, 1
     ld [StarFieldActive], a
     ld a, AI_MEDIUM
@@ -135,18 +152,18 @@ InitSystem:
     ld [VersusBotEnabled], a
     ld a, 1
     ld [DMG_PaletteChoice], a
+    xor a
+    ld [PauseCursorPos], a
+    ld [VersusMenuCursor], a
+    ld [PlayerSkin], a
+    ld [TelemanTargetPlanet], a
     
-    ; Default Customization Setup
-    ld a, 0
-    ld [PlayerCustom_bodyColor], a
-    ld [PlayerCustom_stripeColor], a
-    ld [PlayerCustom_grayPartColor], a
-    ld [PlayerCustom_whitePartColor], a
-    ld a, 1
-    ld [PlayerCustom_isDefault], a
-    ld [PlayerCustom_wingsEquipped], a
-    ld [PlayerCustom_engineEquipped], a
-    
+    ld hl, METEOR_COOLDOWN_MAX
+    ld [TelemanMeteorTimer], hl
+
+    ; Initialize Planets in Space
+    call InitPlanets
+
     ld hl, 16
     ld [Player1PosX], hl
     ld hl, 80
@@ -164,6 +181,30 @@ InitSystem:
     
     ld hl, VERSUS_REGEN_INTERVAL
     ld [VersusRegenTimer], hl
+    ret
+
+InitPlanets:
+    ; Setup 4 background planets with initial coordinates and meteors
+    ld hl, PlanetList
+    
+    ; Planet 1
+    ld [hl], 1       ; Active
+    inc hl
+    ld de, 32        ; X Pos
+    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld de, 24        ; Y Pos
+    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], 1       ; Has Meteor
+    
+    ; Planet 2
+    ld hl, PlanetList + 6
+    ld [hl], 1
+    inc hl
+    ld de, 128
+    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld de, 112
+    ld [hl], e : inc hl : ld [hl], d : inc hl
+    ld [hl], 1
     ret
 
 DetectHardwareAndPalettes:
@@ -207,30 +248,78 @@ GetRandomNumber:
     ld [RandomSeed], hl
     ret
 
-TransferLinkByte:
-    ld [rSB], a
-    ld a, $81
-    ld [rSC], a
-.waitLink:
-    ld a, [rSC]
-    bit 7, a
-    jr nz, .waitLink
-    ld a, [rSB]
+; =====================================================================
+; BOSS TELEMAN: PLANET METEOR TEAR & THROW LOGIC
+; =====================================================================
+UpdateBossTelemanMeteorLogic:
+    ld hl, TelemanMeteorTimer
+    ld a, [hl]
+    and a
+    jr z, .ripAndThrowMeteor
+    dec [hl]
     ret
 
-; =====================================================================
-; ENEMY MANAGEMENT & SPAWNING LOGIC
-; =====================================================================
+.ripAndThrowMeteor:
+    ; Reset timer
+    ld hl, METEOR_COOLDOWN_MAX
+    ld [TelemanMeteorTimer], hl
+
+    ; Find a planet that has a meteor attached
+    ld hl, PlanetList
+    ld b, MAX_PLANETS
+.findPlanetWithMeteor:
+    ld a, [hl] ; Active check
+    and a
+    jr z, .nextPlanetCheck
+    
+    push hl
+    inc hl : inc hl : inc hl : inc hl : inc hl ; Point to HAS_METEOR offset (5)
+    ld a, [hl]
+    pop hl
+    cp 1
+    jr z, .ripMeteorFromThisPlanet
+
+.nextPlanetCheck:
+    ld de, 6
+    add hl, de
+    dec b
+    jr nz, .findPlanetWithMeteor
+    ret
+
+.ripMeteorFromThisPlanet:
+    ; Mark planet meteor as stripped (0)
+    push hl
+    inc hl : inc hl : inc hl : inc hl : inc hl
+    xor a
+    ld [hl], a
+    pop hl
+
+    ; Get Planet X and Y coordinates to spawn meteor projectile
+    push hl
+    inc hl
+    ld e, [hl] : inc hl : ld d, [hl] : inc hl ; DE = Planet X
+    ld c, [hl] : inc hl : ld b, [hl]          ; BC = Planet Y
+    pop hl
+
+    ; Spawn Meteor as an aggressive projectile towards player
+    call SpawnMeteorProjectile
+    ret
+
+SpawnMeteorProjectile:
+    ; Input: DE = X, BC = Y (Spawned from planet towards player)
+    ; We spawn it into the EnemyList as a special projectile/meteor type
+    ld a, ENEMY_TYPE_UFO ; Using UFO/Projectile slot for flying meteor
+    call SpawnEnemyAtCoords
+    ret
+
 SpawnEnemyAtCoords:
-    ; Input: A = Enemy Type, DE = X Pos, BC = Y Pos
     push af
     push de
     push bc
-    
     ld hl, EnemyList
     ld b, MAX_ENEMIES
 .findSlot:
-    ld a, [hl] ; check ENEMY_ACTIVE
+    ld a, [hl]
     and a
     jr z, .foundFree
     ld de, 8
@@ -241,268 +330,138 @@ SpawnEnemyAtCoords:
     pop de
     pop af
     ret
-
 .foundFree:
     pop bc
     pop de
     pop af
-    
-    ; Set active = 1
     ld [hl], 1
     inc hl
-    ; Set type
     ld [hl], a
     inc hl
-    ; Set X Pos (2 bytes)
     ld [hl], e
     inc hl
     ld [hl], d
     inc hl
-    ; Set Y Pos (2 bytes)
     ld [hl], c
     inc hl
     ld [hl], b
     ret
 
-ProcessEnemyDestruction:
-    ; Input: HL = Enemy Pointer, A = Killer Skin (0 = BGC, 1 = Classic)
-    push hl
-    push af
-    
-    ; enemyType = *(enemyPtr + 1)
-    inc hl
-    ld a, [hl]
-    ld b, a ; b = enemyType
-    
-    ; *(enemyPtr + 0) = 0 (Deactivate enemy)
-    pop af ; restore killerSkin
-    push af
-    ld hl, EnemyList ; (re-fetch ptr offset if needed, simplified)
-    ld [hl], 0 
-    
-    pop af
-    and a
-    jr z, .killerIsBGC
-    
-    ; Killer is Classic Skin (1)
-    ld a, b
-    cp ENEMY_TYPE_ALIEN_BUG
-    jr z, .add200
-    ; Else add 400
-    ld hl, [Score]
-    ld de, 400
-    add hl, de
-    ld [Score], hl
-    jr .doneDest
-.add200:
-    ld hl, [Score]
-    ld de, 200
-    add hl, de
-    ld [Score], hl
-    jr .doneDest
-
-.killerIsBGC:
-    ld a, b
-    cp ENEMY_TYPE_ROBO_BUG
-    jr z, .roboBonus
-    ; Else add 250
-    ld hl, [Score]
-    ld de, 250
-    add hl, de
-    ld [Score], hl
-    jr .doneDest
-.roboBonus:
-    call GetRandomNumber
-    and 1
-    jr z, .bonus350
-    ld hl, [Score]
-    ld de, 250
-    add hl, de
-    ld [Score], hl
-    jr .doneDest
-.bonus350:
-    ld hl, [Score]
-    ld de, 350
-    add hl, de
-    ld [Score], hl
-
-.doneDest:
-    pop hl
-    ret
-
 ; =====================================================================
-; COLOR & PALETTE CUSTOMIZATION LOGIC
-; =====================================================================
-State_ColorCustomize_Logic:
-    ldh a, [rP1]
-    ld b, a
-    
-    ld a, [HardwareMode]
-    and a
-    jr nz, .cgbCustomization
-    
-    ; DMG Palette Logic (Left/Right changes DMG_PaletteChoice 1-4)
-    bit 4, b ; Right
-    jr nz, .dmgRight
-    bit 5, b ; Left
-    jr nz, .dmgLeft
-    jr .checkStart
-    
-.dmgRight:
-    ld hl, DMG_PaletteChoice
-    inc [hl]
-    ld a, [hl]
-    cp 5
-    jr c, .checkStart
-    ld [hl], 1
-    jr .checkStart
-.dmgLeft:
-    ld hl, DMG_PaletteChoice
-    dec [hl]
-    ld a, [hl]
-    and a
-    jr nz, .checkStart
-    ld [hl], 4
-    jr .checkStart
-
-.cgbCustomization:
-    ; CGB Customization logic (Up/Down/Left/Right/Select)
-    bit 6, b ; Up -> bodyColor++
-    jr nz, .incBody
-    bit 7, b ; Down -> stripeColor++
-    jr nz, .incStripe
-    bit 4, b ; Right -> grayPartColor++
-    jr nz, .incGray
-    bit 5, b ; Left -> whitePartColor++
-    jr nz, .incWhite
-    bit 3, b ; Select -> Reset defaults
-    jr nz, .resetCust
-    jr .checkStart
-
-.incBody:
-    ld hl, PlayerCustom_bodyColor
-    inc [hl]
-    ld a, 0
-    ld [PlayerCustom_isDefault], a
-    jr .checkStart
-.incStripe:
-    ld hl, PlayerCustom_stripeColor
-    inc [hl]
-    ld a, 0
-    ld [PlayerCustom_isDefault], a
-    jr .checkStart
-.incGray:
-    ld hl, PlayerCustom_grayPartColor
-    inc [hl]
-    ld a, 0
-    ld [PlayerCustom_isDefault], a
-    jr .checkStart
-.incWhite:
-    ld hl, PlayerCustom_whitePartColor
-    inc [hl]
-    ld a, 0
-    ld [PlayerCustom_isDefault], a
-    jr .checkStart
-.resetCust:
-    xor a
-    ld [PlayerCustom_bodyColor], a
-    ld [PlayerCustom_stripeColor], a
-    ld [PlayerCustom_grayPartColor], a
-    ld [PlayerCustom_whitePartColor], a
-    ld a, 1
-    ld [PlayerCustom_isDefault], a
-
-.checkStart:
-    bit 3, b ; Start button to return to main menu
-    ret
-
-; =====================================================================
-; OTHER GAME STATES
+; MENUS & GAMEPLAY STATES
 ; =====================================================================
 State_MainMenu_Logic:
+    ldh a, [rP1]
+    ld b, a
+    bit 3, b ; Start -> Play
+    jr nz, .startPlay
+    bit 2, b ; Select -> Versus
+    jr nz, .startVersusMenu
+    bit 0, b ; A -> Skin Select
+    jr nz, .startSkinSelect
+    bit 1, b ; B -> Color Customize
+    jr nz, .startColorCustomize
+    ret
+
+.startPlay:
+    ld a, STATE_PLAYING
+    ld [CurrentState], a
+    ld [PreviousState], a
+    ret
+.startVersusMenu:
+    ld a, STATE_VERSUS_MENU
+    ld [CurrentState], a
+    ret
+.startSkinSelect:
+    ld a, STATE_SKIN_SELECT
+    ld [CurrentState], a
+    ret
+.startColorCustomize:
+    ld a, STATE_COLOR_CUSTOMIZE
+    ld [CurrentState], a
+    ret
+
+State_SkinSelect_Logic:
+    ldh a, [rP1]
+    ld b, a
+    bit 0, b
+    jr nz, .toggleSkin
+    bit 3, b
+    jr nz, .returnMain
+    ret
+.toggleSkin:
+    ld a, [PlayerSkin]
+    xor 1
+    ld [PlayerSkin], a
+    ret
+.returnMain:
+    ld a, STATE_MAIN_MENU
+    ld [CurrentState], a
     ret
 
 State_VersusMenu_Logic:
     ret
 
+State_GamePaused_Logic:
+    ldh a, [rP1]
+    ld b, a
+    bit 6, b
+    jr nz, .cursorUp
+    bit 7, b
+    jr nz, .cursorDown
+    bit 0, b
+    jr nz, .confirmSelection
+    ret
+.cursorUp:
+    xor a
+    ld [PauseCursorPos], a
+    ret
+.cursorDown:
+    ld a, 1
+    ld [PauseCursorPos], a
+    ret
+.confirmSelection:
+    ld a, [PauseCursorPos]
+    and a
+    jr z, .resumeGame
+    ld a, STATE_MAIN_MENU
+    ld [CurrentState], a
+    xor a
+    ld [PauseCursorPos], a
+    ret
+.resumeGame:
+    ld a, [PreviousState]
+    ld [CurrentState], a
+    xor a
+    ld [PauseCursorPos], a
+    ret
+
+State_ColorCustomize_Logic:
+    ret
+
 State_VersusPlaying_Logic:
-    call UpdateVersusHealthRegen
-    ld a, [VersusBotEnabled]
-    and a
-    jr z, .linkMulti
-    call UpdateVersusBotAI
-    ret
-.linkMulti:
-    call UpdateLinkCableMultiplayer
-    ret
-
-UpdateVersusHealthRegen:
-    ld hl, VersusRegenTimer
-    ld a, [hl]
-    and a
-    jr z, .doRegen
-    dec [hl]
-    ret
-.doRegen:
-    ld hl, VERSUS_REGEN_INTERVAL
-    ld [VersusRegenTimer], hl
-    
-    ld hl, [Player1HP]
-    ld de, VERSUS_REGEN_AMOUNT
-    add hl, de
-    ld a, h
-    cp HIGH(MAX_PLAYER_HP)
-    jr nc, .capP1
-    ld [Player1HP], hl
-    jr .regenP2
-.capP1:
-    ld hl, MAX_PLAYER_HP
-    ld [Player1HP], hl
-
-.regenP2:
-    ld hl, [Player2HP]
-    ld de, VERSUS_REGEN_AMOUNT
-    add hl, de
-    ld a, h
-    cp HIGH(MAX_PLAYER_HP)
-    jr nc, .capP2
-    ld [Player2HP], hl
-    ret
-.capP2:
-    ld hl, MAX_PLAYER_HP
-    ld [Player2HP], hl
-    ret
-
-UpdateVersusBotAI:
-    ld a, [VersusAIDifficulty]
-    cp AI_EXPERT
-    jr z, .expertAI
-    ret
-.expertAI:
-    ld hl, [Player1PosX]
-    ld de, [Player2PosX]
-    ld a, h
-    cp d
-    jr z, .doneAI
-    jr c, .moveLeft
-    inc de
-    inc de
-    ld [Player2PosX], de
-    ret
-.moveLeft:
-    dec de
-    dec de
-    ld [Player2PosX], de
-.doneAI:
-    ret
-
-UpdateLinkCableMultiplayer:
-    ld a, [Player1PosX]
-    call TransferLinkByte
-    ld [Player2PosX], a
+    ldh a, [rP1]
+    bit 3, a
+    ret z
+    ld a, STATE_VERSUS_PLAYING
+    ld [PreviousState], a
+    ld a, STATE_PAUSED
+    ld [CurrentState], a
     ret
 
 State_GamePlaying_Logic:
+    ldh a, [rP1]
+    bit 3, a ; Start -> Pause
+    jr z, .noPause
+    ld a, STATE_PLAYING
+    ld [PreviousState], a
+    ld a, STATE_PAUSED
+    ld [CurrentState], a
+    ret
+.noPause:
+
+    ; Run Boss Teleman Planet Meteor Attack Logic during gameplay
+    call UpdateBossTelemanMeteorLogic
     call UpdateNormalModeEnemies
     ret
 
@@ -513,16 +472,9 @@ UpdateNormalModeEnemies:
     ld a, [hl]
     and a
     jr z, .nextEnemy
-    ; Enemy is active, handle logic here
 .nextEnemy:
     ld de, 8
     add hl, de
     dec b
     jr nz, .enemyLoop
-    ret
-
-State_GamePaused_Logic:
-    ret
-
-State_SkinSelect_Logic:
     ret
