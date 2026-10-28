@@ -115,21 +115,49 @@ PlanetList:           ds MAX_PLANETS * 6
 
 ; --- ROM Header & Entry Point ---
 SECTION "Header", ROM0[$0100]
+    di
     jp EntryPoint
-    ds $150 - @, 0
+
+    ; Resmi Nintendo Logo Verisi (Zorunludur)
+    db $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
+    db $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99
+    db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3e
+
+    db "BGC BLAST", 0, 0, 0
+    db $80          ; CGB Flag
+    ds 2, 0         ; Yeni Lisans Kodu
+    db $03          ; SGB Flag
+    db $01          ; Kartuş Tipi
+    db $00          ; ROM Boyutu
+    db $00          ; RAM Boyutu
+    db $01          ; Hedef Kod
+    db $33          ; Eski Lisans Kodu
+    db $00          ; Maskesi Versiyonu
+    db $00          ; Header Checksum
+    dw $0000        ; Global Checksum
 
 EntryPoint:
     di
     ld sp, $FFFE
+
+    ; LCD'yi güvenli kapat (VBlank beklemesi)
+.waitVBlank1:
+    ldh a, [rLY]
+    cp 144
+    jr nc, .waitVBlank1
+    
+    xor a
+    ldh [rLCDC], a
+
     call InitSystem
     call DetectHardwareAndPalettes
     call DetectSGBHardware
 
 MainLoop:
-    ld a, [StarFieldActive]
-    and a
-    jr z, .skipStars
-    call DrawSpaceBackgroundStars
+    ldh a, [rLY]
+    cp 144
+    jr nc, .skipStars
+    ; Düşük yük döngüsü
 .skipStars:
 
     ld a, [CurrentState]
@@ -179,7 +207,7 @@ MainLoop:
 ; =====================================================================
 InitSystem:
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
-    ld [rLCDC], a
+    ldh [rLCDC], a
     
     ld a, STATE_MAIN_MENU
     ld [CurrentState], a
@@ -286,16 +314,16 @@ InitPlanets:
     ret
 
 DetectHardwareAndPalettes:
-    ld a, [rCPU]
+    ldh a, [rCPU]
     cp $11
     jr z, .isCGB
     ld a, 0
     ld [HardwareMode], a
     ld a, $E4
-    ld [rBGP], a
-    ld [rOBP0], a
+    ldh [rBGP], a
+    ldh [rOBP0], a
     ld a, $1B
-    ld [rOBP1], a
+    ldh [rOBP1], a
     ret
 .isCGB:
     ld a, 1
@@ -311,11 +339,11 @@ DrawSpaceBackgroundStars:
     ret
 
 WaitVBlank:
-    ld a, [rLY]
+    ldh a, [rLY]
     cp 144
     jr nc, WaitVBlank
 .waitV:
-    ld a, [rLY]
+    ldh a, [rLY]
     cp 144
     jr c, .waitV
     ret
