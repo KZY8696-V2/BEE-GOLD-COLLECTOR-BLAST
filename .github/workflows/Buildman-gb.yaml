@@ -23,12 +23,13 @@ jobs:
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile C Code with LCC
+      - name: Compile C Code with LCC and Makebin
         run: |
-          # Doğrudan ana klasörde, modern GBDK 2020 formatıyla derle
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.gb BGC-BLAST-GB.c
-
-
+          # 1. Adım: C kodunu doğrudan .ihx formatına derle
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o bgc_blast.ihx BGC-BLAST-GB.c
+          
+          # 2. Adım: .ihx dosyasını .gb ROM dosyasına dönüştür
+          makebin -w -y -yt 0x1B -yo 4 -js bgc_blast.ihx bgc_blast.gb
 
       - name: Upload Final Game Boy ROM Artifact
         uses: actions/upload-artifact@v4
