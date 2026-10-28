@@ -1,3 +1,7 @@
+; =====================================================================
+; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM
+; =====================================================================
+
 ; --- RGBDS Donanım ve Register Sabitleri (8-bit Offsetler) ---
 DEF rP1       EQU $00
 DEF rSB       EQU $01
@@ -112,8 +116,11 @@ PlayerCustom_engineEquipped: ds 1
 
 EnemyList:            ds MAX_ENEMIES * 8
 PlanetList:           ds MAX_PLANETS * 6
+JoypadState:          ds 1  ; Güncel tuş durumu
 
-; --- ROM Header & Entry Point ---
+; =====================================================================
+; ROM HEADER & ENTRY POINT
+; =====================================================================
 SECTION "Header", ROM0[$0100]
     di
     jp EntryPoint
@@ -124,9 +131,9 @@ SECTION "Header", ROM0[$0100]
     db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3e
 
     db "BGC BLAST", 0, 0, 0
-    db $80          ; CGB Flag
+    db $80          ; CGB Flag (DMG/CGB uyumlu)
     ds 2, 0         ; Yeni Lisans Kodu
-    db $03          ; SGB Flag
+    db $03          ; SGB Flag (Super Game Boy destekli)
     db $01          ; Kartuş Tipi
     db $00          ; ROM Boyutu
     db $00          ; RAM Boyutu
@@ -140,7 +147,7 @@ EntryPoint:
     di
     ld sp, $FFFE
 
-    ; LCD'yi güvenli kapat (VBlank beklemesi)
+    ; LCD'yi güvenli kapat (VBlank beklemesi ile)
 .waitVBlank1:
     ldh a, [rLY]
     cp 144
@@ -154,11 +161,8 @@ EntryPoint:
     call DetectSGBHardware
 
 MainLoop:
-    ldh a, [rLY]
-    cp 144
-    jr nc, .skipStars
-    ; Düşük yük döngüsü
-.skipStars:
+    call WaitVBlank
+    call ReadJoypad
 
     ld a, [CurrentState]
     cp STATE_MAIN_MENU
@@ -175,40 +179,41 @@ MainLoop:
     jr z, .st_vplay
     cp STATE_COLOR_CUSTOMIZE
     jr z, .st_color
-    jr .endSwitch
+    jr MainLoop
 
 .st_main:
     call State_MainMenu_Logic     
-    jr .endSwitch
+    jr MainLoop
 .st_play:
     call State_GamePlaying_Logic  
-    jr .endSwitch
+    jr MainLoop
 .st_pause:
     call State_GamePaused_Logic   
-    jr .endSwitch
+    jr MainLoop
 .st_skin:
     call State_SkinSelect_Logic   
-    jr .endSwitch
+    jr MainLoop
 .st_vmenu:
     call State_VersusMenu_Logic   
-    jr .endSwitch
+    jr MainLoop
 .st_vplay:
     call State_VersusPlaying_Logic 
-    jr .endSwitch
+    jr MainLoop
 .st_color:
     call State_ColorCustomize_Logic
-
-.endSwitch:
-    call WaitVBlank
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION
+; SYSTEM INITIALIZATION & GRAPHICS SETUP
 ; =====================================================================
 InitSystem:
-    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
-    ldh [rLCDC], a
-    
+    ; DMG Renk Paletini Ayarla (Düz yeşil ekran yerine net tonlar)
+    ld a, $E4       ; %11 10 01 00 (Normal siyah-beyaz kontrast)
+    ldh [rBGP], a
+    ldh [rOBP0], a
+    ldh [rOBP1], a
+
+    ; Temel Değişkenleri Sıfırla
     ld a, STATE_MAIN_MENU
     ld [CurrentState], a
     ld a, STATE_PLAYING
@@ -235,6 +240,7 @@ InitSystem:
 
     call InitPlanets
 
+    ; Oyuncu ve Pozisyon Verileri
     ld hl, 16
     ld a, l 
     ld [Player1PosX], a 
@@ -281,6 +287,10 @@ InitSystem:
     ld [VersusRegenTimer], a 
     ld a, h 
     ld [VersusRegenTimer + 1], a
+
+    ; LCD'yi aç (Arka plan ve OBJ aktif)
+    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
+    ldh [rLCDC], a
     ret
 
 InitPlanets:
@@ -319,11 +329,6 @@ DetectHardwareAndPalettes:
     jr z, .isCGB
     ld a, 0
     ld [HardwareMode], a
-    ld a, $E4
-    ldh [rBGP], a
-    ldh [rOBP0], a
-    ld a, $1B
-    ldh [rOBP1], a
     ret
 .isCGB:
     ld a, 1
@@ -335,9 +340,6 @@ DetectSGBHardware:
     ld [IsSuperGameBoy], a
     ret
 
-DrawSpaceBackgroundStars:
-    ret
-
 WaitVBlank:
     ldh a, [rLY]
     cp 144
@@ -346,6 +348,37 @@ WaitVBlank:
     ldh a, [rLY]
     cp 144
     jr c, .waitV
+    ret
+
+; =====================================================================
+; ROBUST JOYPAD READING ROUTINE
+; =====================================================================
+ReadJoypad:
+    ; 1. Action Tuşlarını Oku (Start, Select, B, A)
+    ld a, $20
+    ldh [rP1], a
+    ldh a, [rP1]
+    ldh a, [rP1]        ; Donanım gecikmesi için
+    cpl                 ; Bitleri ters çevir (1 = basıldı)
+    and $0F
+    swap a              ; Üst nibble'a taşı
+    ld b, a
+
+    ; 2. Yön Tuşlarını Oku (Down, Up, Left, Right)
+    ld a, $10
+    ldh [rP1], a
+    ldh a, [rP1]
+    ldh a, [rP1]
+    ldh a, [rP1]
+    ldh a, [rP1]
+    cpl
+    and $0F
+    or b                ; Action ve Direction birleştir
+    ld [JoypadState], a
+    
+    ; Joypad hattını kapat
+    ld a, $30
+    ldh [rP1], a
     ret
 
 GetRandomNumber:
@@ -376,16 +409,18 @@ CheckAndSpawnTelemanMeteors:
 SpawnEnemyAtCoords:
     ret
 
+; =====================================================================
+; GAME STATES & LOGIC
+; =====================================================================
 State_MainMenu_Logic:
-    ldh a, [rP1]
-    ld b, a
-    bit 3, b 
+    ld a, [JoypadState]
+    bit 3, a            ; Start tuşuna basıldı mı? (Bit 7 of action -> bit 3 in combined if swapped)
     jr nz, .startPlay
-    bit 2, b 
+    bit 2, a            ; Select tuşu -> Versus Menu
     jr nz, .startVersusMenu
-    bit 0, b 
+    bit 0, a            ; A tuşu -> Skin Select
     jr nz, .startSkinSelect
-    bit 1, b 
+    bit 1, a            ; B tuşu -> Color Customize
     jr nz, .startColorCustomize
     ret
 
@@ -408,11 +443,10 @@ State_MainMenu_Logic:
     ret
 
 State_SkinSelect_Logic:
-    ldh a, [rP1]
-    ld b, a
-    bit 0, b
+    ld a, [JoypadState]
+    bit 0, a            ; A tuşu
     jr nz, .toggleSkin
-    bit 3, b
+    bit 3, a            ; Start tuşu ile ana menüye dön
     jr nz, .returnMain
     ret
 .toggleSkin:
@@ -429,13 +463,12 @@ State_VersusMenu_Logic:
     ret
 
 State_GamePaused_Logic:
-    ldh a, [rP1]
-    ld b, a
-    bit 6, b
+    ld a, [JoypadState]
+    bit 6, a            ; Yukarı
     jr nz, .cursorUp
-    bit 7, b
+    bit 7, a            ; Aşağı
     jr nz, .cursorDown
-    bit 0, b
+    bit 4, a            ; A tuşu (Confirm)
     jr nz, .confirmSelection
     ret
 .cursorUp:
@@ -466,7 +499,7 @@ State_ColorCustomize_Logic:
     ret
 
 State_VersusPlaying_Logic:
-    ldh a, [rP1]
+    ld a, [JoypadState]
     bit 3, a
     ret z
     ld a, STATE_VERSUS_PLAYING
@@ -476,7 +509,7 @@ State_VersusPlaying_Logic:
     ret
 
 State_GamePlaying_Logic:
-    ldh a, [rP1]
+    ld a, [JoypadState]
     bit 3, a 
     jr z, .noPause
     ld a, STATE_PLAYING
@@ -496,6 +529,7 @@ UpdateNormalModeEnemies:
     ld a, [hl]
     and a
     jr z, .nextEnemy
+    ; Düşgün aktifse buraya işlem eklenebilir
 .nextEnemy:
     ld de, 8
     add hl, de
