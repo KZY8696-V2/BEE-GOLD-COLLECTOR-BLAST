@@ -1,4 +1,4 @@
-name: Build-native-roms-name: Build-native-roms
+name: Build-native-roms-name
 
 on:
   push:
