@@ -65,9 +65,11 @@ jobs:
           echo '    INDEX 01 00:00:00' >> bgc_blast.cue
 
       # 6. Neo Geo CD uyumlu ISO imajını (ISO-9660) paketle
+            # 6. Neo Geo CD uyumlu ISO imajını standart veri diski olarak paketle
       - name: Package Neo Geo CD ISO Image
         run: |
-          genisoimage -o bgc_blast.iso -V "BGC_BLAST" -no-emul-boot -iso-level 1 .
+          genisoimage -o bgc_blast.iso -V "BGC_BLAST" -iso-level 1 .
+
 
       # 7. Üretilen tüm kritik dosyaları (ISO, CUE, IPL.TXT, BUILD.TXT, BIN) Artifact olarak kaydet
       - name: Upload Neo Geo CD Build Artifacts
