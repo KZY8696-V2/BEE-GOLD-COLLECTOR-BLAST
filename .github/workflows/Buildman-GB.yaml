@@ -34,13 +34,13 @@ jobs:
             echo "$rgbdsPath" >> $env:GITHUB_PATH
             $env:Path += ";$rgbdsPath"
 
-            # hardware.inc dosyasını indir
+            # hardware.inc dosyasını doğrudan çalışma dizinine indir
             curl.exe -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
 
             New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-            # 1. Object Dosyasını Derle (-I . parametresi ile hardware.inc yolunu garantiye al)
-            rgbasm -I . -o main.o BGC-BLAST-GB.asm
+            # 1. Object Dosyasını Derle (Küçük harf -i parametresi ile)
+            rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
             # 2. DMG Sürümü
             rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
