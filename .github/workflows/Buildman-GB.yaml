@@ -28,15 +28,11 @@ jobs:
           echo "$rgbdsPath" >> $env:GITHUB_PATH
           $env:Path += ";$rgbdsPath"
 
-          # hardware.inc dosyasının varlığını kontrol et, yoksa indir
-          if (!(Test-Path "hardware.inc")) {
-              Write-Host "hardware.inc bulunamadı, indiriliyor..."
-              Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
-          } else {
-              Write-Host "hardware.inc yerel repodan okunuyor."
-          }
+          # GARANTİ ÇÖZÜM: hardware.inc dosyasını her seferinde doğrudan indir ve koy
+          Write-Host "hardware.inc indiriliyor..."
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
 
-          # Çıktı klasörünü oluştur
+          # Çıktı klasörünü kesin olarak oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
           # 1. Object Dosyasını Derle
