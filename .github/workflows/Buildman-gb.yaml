@@ -28,20 +28,28 @@ jobs:
           # Çıktı klasörünü oluştur
           New-Item -ItemType Directory -Force -Path "rom_outputs"
 
+          # ---------------------------------------------------------
           # 1. DMG Sürümü (Orijinal Game Boy + SGB + Link)
-          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js -o dmg_b.ihx BGC-BLAST-GB.c
+          # ---------------------------------------------------------
+          lcc -msm83:gb -Wl-yt0x1B -Wl-yo4 -Wl-js BGC-BLAST-GB.c -o dmg_b.ihx
           makebin -Z -ys -yt 0x1B -yo 4 -js dmg_b.ihx rom_outputs/bgc_blast_DMG.gb
 
+          # ---------------------------------------------------------
           # 2. CGB Sürümü (Game Boy Color + SGB + Link)
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o cgb_b.ihx BGC-BLAST-GB.c
+          # ---------------------------------------------------------
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js BGC-BLAST-GB.c -o cgb_b.ihx
           makebin -Z -yc -ys -yt 0x1B -yo 4 -js cgb_b.ihx rom_outputs/bgc_blast_CGB.gb
 
+          # ---------------------------------------------------------
           # 3. GBA Sürümü (Game Boy Advance Optimize + SGB + Link)
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o gba_b.ihx BGC-BLAST-GB.c
+          # ---------------------------------------------------------
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js BGC-BLAST-GB.c -o gba_b.ihx
           makebin -Z -yC -ys -yt 0x1B -yo 4 -js gba_b.ihx rom_outputs/bgc_blast_GBA.gb
 
-          # 4. "ALL" MANTIĞI: Tüm cihazlarda çalışan tek evrensel master ROM (KGAMER Universal)
-          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js -o all_b.ihx BGC-BLAST-GB.c
+          # ---------------------------------------------------------
+          # 4. "ALL" MANTIĞI: Tüm cihazlarda çalışan tek evrensel master ROM
+          # ---------------------------------------------------------
+          lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js BGC-BLAST-GB.c -o all_b.ihx
           makebin -Z -yc -ys -yt 0x1B -yo 4 -js all_b.ihx rom_outputs/bgc_blast_ALL.gb
 
       - name: Upload All and Universal ROM Artifacts
