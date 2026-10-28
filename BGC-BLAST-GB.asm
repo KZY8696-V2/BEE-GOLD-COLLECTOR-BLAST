@@ -290,9 +290,10 @@ WaitVBlank:
     ret
 
 GetRandomNumber:
-    ld hl, [RandomSeed]
-    inc hl
-    ld [RandomSeed], hl
+    ld hl, RandomSeed
+    ld a, [hl]
+    inc a
+    ld [hl], a
     ret
 
 CheckAndSpawnTelemanMeteors:
