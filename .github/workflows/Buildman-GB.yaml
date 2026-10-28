@@ -8,43 +8,43 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
-      - name: Install RGBDS Manually and Compile ROMs
+
+      - name: Install RGBDS via Chocolatey and Compile ROMs
+        shell: pwsh
         run: |
-      
-          # 1. Derleme için gerekli araçları kur
-          sudo apt-get update
-          sudo apt-get install -y build-essential bison flex libpng-dev pkg-config curl git
+          # Chocolatey ile resmi Windows RGBDS paketini kur
+          choco install rgbds -y
 
-          # 2. RGBDS kaynak kodunu klonla ve derle
-          git clone --depth 1 --branch v0.5.2 https://github.com/gbdev/rgbds.git
-          cd rgbds
-          make -j$(nproc)
-          sudo make install
-          cd ..
+          # RGBDS yolunu geçici olarak PATH'e ekle
+          $rgbdsPath = "C:\ProgramData\chocolatey\lib\rgbds\rgbds"
+          if (!(Test-Path $rgbdsPath)) {
+              $rgbdsPath = "C:\ProgramData\chocolatey\bin"
+          }
+          echo "$rgbdsPath" >> $env:GITHUB_PATH
+          $env:Path += ";$rgbdsPath"
 
-          # 3. Resmi hardware.inc dosyasını indir
-          curl -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
+          # Resmi hardware.inc dosyasını doğrudan indir
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
 
-          mkdir -p rom_outputs
+          New-Item -ItemType Directory -Force -Path "rom_outputs"
 
-          # 4. Object Dosyasını Derle
+          # 1. Object Dosyasını Derle
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
-          # 5. DMG Sürümü
+          # 2. DMG Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
           rgbfix -v -p 0xFF -t "BGC BLAST DMG" -c -i 01 -k 01 rom_outputs/bgc_blast_DMG.gb
 
-          # 6. CGB Sürümü
+          # 3. CGB Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
           rgbfix -v -p 0xFF -t "BGC BLAST CGB" -C -i 01 -k 01 rom_outputs/bgc_blast_CGB.gb
 
-          # 7. ALL Evrensel Master ROM Sürümü
+          # 4. ALL Evrensel Master ROM Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
           rgbfix -v -p 0xFF -t "BGC BLAST ALL" -C -i 01 -k 01 rom_outputs/bgc_blast_ALL.gb
 
