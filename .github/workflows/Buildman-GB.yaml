@@ -1,4 +1,4 @@
-name: Build-native-roms
+name: Build-native-roms-container
 
 on:
   push:
@@ -8,29 +8,22 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    container:
+      image: gbdev/rgbds:v0.5.2
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install RGBDS, Download hardware.inc and Compile
+      - name: Download hardware.inc and Compile ROMs
         run: |
-          choco install rgbds -y
-          
-          $rgbdsPath = "C:\ProgramData\chocolatey\lib\rgbds\rgbds"
-          if (!(Test-Path $rgbdsPath)) {
-              $rgbdsPath = "C:\ProgramData\chocolatey\bin"
-          }
-          echo "$rgbdsPath" >> $env:GITHUB_PATH
-          $env:Path += ";$rgbdsPath"
-
           # Resmi hardware.inc dosyasını indir
-          curl.exe -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
+          curl -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
 
-          New-Item -ItemType Directory -Force -Path "rom_outputs"
+          mkdir -p rom_outputs
 
-          # 1. Object Dosyasını Doğru .asm adıyla Derle
+          # 1. Object Dosyasını Derle
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
           # 2. DMG Sürümü
