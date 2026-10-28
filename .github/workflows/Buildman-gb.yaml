@@ -1,0 +1,38 @@
+name: BGC Blast Final Masterpiece Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows-gameboy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download and Extract GBDK 2020 (Windows Binaries)
+        run: |
+          # Resmi GBDK 2020 Windows paketini indir ve C:\gbdk altına aç
+          $gbdkUrl = "https://github.com/gbdk-2020/gbdk-2020/releases/download/4.2.0/gbdk-win64.zip"
+          $outputPath = "$env:TEMP\gbdk-win64.zip"
+          Invoke-WebRequest -Uri $gbdkUrl -OutFile $outputPath
+          Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
+          
+          # GBDK bin klasörünü PATH değişkenine ekle
+          echo "C:\gbdk\bin" >> $env:GITHUB_PATH
+
+      - name: Compile C Code with LCC (MBC5, SGB & CGB Support)
+        run: |
+          # lcc kullanarak main.c dosyasını MBC5, Super Game Boy (-Wl-js) ve CGB uyumlu ROM'a derle
+          lcc -Wl-yt0x1B -Wl-yo4 -Wl-js -Wl-Wm -o bgc_blast.gb main.c
+
+      - name: Upload Final Game Boy ROM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgc-blast-final-rom
+          path: bgc_blast.gb
