@@ -1,4 +1,51 @@
-name: Build-native-roms-container
+name: Build-native-roms-name: Build-native-roms
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install RGBDS and Compile ROMs
+        run: |
+          # Ubuntu paket yöneticisi ile RGBDS'i doğrudan kur
+          sudo apt-get update
+          sudo apt-get install -y rgbds curl
+
+          # Resmi hardware.inc dosyasını indir
+          curl -L -o hardware.inc "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc"
+
+          mkdir -p rom_outputs
+
+          # 1. Object Dosyasını Derle
+          rgbasm -i . -o main.o BGC-BLAST-GB.asm
+
+          # 2. DMG Sürümü
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
+          rgbfix -v -p 0xFF -t "BGC BLAST DMG" -c -i 01 -k 01 rom_outputs/bgc_blast_DMG.gb
+
+          # 3. CGB Sürümü
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
+          rgbfix -v -p 0xFF -t "BGC BLAST CGB" -C -i 01 -k 01 rom_outputs/bgc_blast_CGB.gb
+
+          # 4. ALL Evrensel Master ROM Sürümü
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
+          rgbfix -v -p 0xFF -t "BGC BLAST ALL" -C -i 01 -k 01 rom_outputs/bgc_blast_ALL.gb
+
+      - name: Upload ROM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgc-blast-roms
+          path: rom_outputs/
+
 
 on:
   push:
