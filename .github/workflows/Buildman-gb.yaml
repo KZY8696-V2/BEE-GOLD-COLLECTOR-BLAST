@@ -17,21 +17,20 @@ jobs:
 
       - name: Download and Extract GBDK 2020 (Windows Binaries)
         run: |
-          $gbdkUrl = "https://git hub.com/gbdk-2020/gbdk-2020/releases/download/4.2.0/gbdk-win64.zip"
+          # URL içindeki boşluk düzeltildi
+          $gbdkUrl = "https://github.com/gbdk-2020/gbdk-2020/releases/download/4.2.0/gbdk-win64.zip"
           $outputPath = "$env:TEMP\gbdk-win64.zip"
           Invoke-WebRequest -Uri $gbdkUrl -OutFile $outputPath
           Expand-Archive -Path $outputPath -DestinationPath "C:\" -Force
           echo "C:\gbdk\bin" >> $env:GITHUB_PATH
 
-      - name: Compile and Convert to ROM
+      - name: Compile C Code and Convert to ROM
         run: |
-          # 1. Adım: LCC ile kaynak kodunu derle (çıktı ismini BGC-BLAST-GB.c tabanlı bırakıyoruz)
+          # 1. Adım: LCC ile kaynak kodunu derle (.ihx üretir)
           lcc -msm83:gb -Wm-yc -Wl-yt0x1B -Wl-yo4 -Wl-js BGC-BLAST-GB.c
           
-          # 2. Adım: Üretilen .ihx (Intel Hex) dosyasını makebin ile .gb ROM formatına dönüştür
-          # -Z (GameBoy formatı), -yt 0x1B (MBC5), -yo 4 (4 ROM bankası), -js (Super Game Boy desteği)
+          # 2. Adım: makebin ile .ihx dosyasını .gb ROM formatına paketle
           makebin -Z -yt 0x1B -yo 4 -js BGC-BLAST-GB.ihx bgc_blast.gb
-
 
       - name: Upload Final Game Boy ROM Artifact
         uses: actions/upload-artifact@v4
