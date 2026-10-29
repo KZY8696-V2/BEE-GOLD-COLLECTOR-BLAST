@@ -14,13 +14,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install RGBDS via Chocolatey and Compile ROMs
+      - name: Install RGBDS, Download hardware.inc and Compile
         shell: pwsh
         run: |
-          # Chocolatey ile resmi Windows RGBDS paketini kur
-          choco install rgbds -y
+          # 1. EN BAŞTA: hardware.inc dosyasını indir
+          Write-Host "hardware.inc indiriliyor..."
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
 
-          # RGBDS yolunu PATH'e ekle
+          # 2. Çıktı klasörünü oluştur ve hardware.inc'i oraya da kopyala (Garanti olsun)
+          New-Item -ItemType Directory -Force -Path "rom_outputs"
+          Copy-Item "hardware.inc" -Destination "rom_outputs/hardware.inc"
+
+          # 3. Chocolatey ile RGBDS kur
+          choco install rgbds -y
           $rgbdsPath = "C:\ProgramData\chocolatey\lib\rgbds\rgbds"
           if (!(Test-Path $rgbdsPath)) {
               $rgbdsPath = "C:\ProgramData\chocolatey\bin"
@@ -28,26 +34,11 @@ jobs:
           echo "$rgbdsPath" >> $env:GITHUB_PATH
           $env:Path += ";$rgbdsPath"
 
-          # GARANTİ ÇÖZÜM: hardware.inc dosyasını her seferinde doğrudan indir ve koy
-          Write-Host "hardware.inc indiriliyor..."
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
-
-          # Çıktı klasörünü kesin olarak oluştur
-          New-Item -ItemType Directory -Force -Path "rom_outputs"
-
-          # 1. Object Dosyasını Derle
+          # 4. Derleme ve Mühürleme İşlemi
+          Write-Host "ROM Derleniyor..."
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
-
-          # 2. DMG Sürümü (rgbfix yerine sadece rgblink ile padding yapıyoruz)
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
-
-          # 3. CGB Sürümü
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
-
-          # 4. ALL Evrensel Master ROM Sürümü
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
-
-
+          rgblink -p 0xFF -m rom_outputs/bgc_blast.map -n rom_outputs/bgc_blast.sym -o rom_outputs/bgc_blast.gb main.o
+          rgbfix -v -p 0xFF -C -g rom_outputs/bgc_blast.gb
 
       - name: Upload ROM Artifacts
         uses: actions/upload-artifact@v4
