@@ -36,13 +36,14 @@ DEF LCDCF_OBJON   EQU %00000010
 DEF LCDCF_BGON    EQU %00000001
 
 ; --- Game States ---
-DEF STATE_MAIN_MENU         EQU 0
-DEF STATE_PLAYING           EQU 1
-DEF STATE_PAUSED            EQU 2
-DEF STATE_SKIN_SELECT       EQU 3
-DEF STATE_VERSUS_MENU       EQU 4
-DEF STATE_VERSUS_PLAYING    EQU 5
-DEF STATE_COLOR_CUSTOMIZE   EQU 6
+DEF STATE_INTRO             EQU 0  ; KGAMER Açılış Ekranı
+DEF STATE_MAIN_MENU         EQU 1  ; Asıl Ana Menü
+DEF STATE_PLAYING           EQU 2
+DEF STATE_PAUSED            EQU 3
+DEF STATE_SKIN_SELECT       EQU 4
+DEF STATE_VERSUS_MENU       EQU 5
+DEF STATE_VERSUS_PLAYING    EQU 6
+DEF STATE_COLOR_CUSTOMIZE   EQU 7
 
 ; --- AI Difficulties ---
 DEF AI_EASY                 EQU 1
@@ -116,7 +117,7 @@ PlayerCustom_engineEquipped: ds 1
 
 EnemyList:            ds MAX_ENEMIES * 8
 PlanetList:           ds MAX_PLANETS * 6
-JoypadState:          ds 1  ; Güncel tuş durumu
+JoypadState:          ds 1  
 
 ; =====================================================================
 ; ROM HEADER & ENTRY POINT
@@ -131,31 +132,27 @@ SECTION "Header", ROM0[$0100]
     db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3e
 
     db "BGC BLAST", 0, 0, 0
-    db $80          ; CGB Flag (DMG/CGB uyumlu)
-    ds 2, 0         ; Yeni Lisans Kodu
-    db $03          ; SGB Flag (Super Game Boy destekli)
+    db $80          ; CGB Flag
+    ds 2, 0         
+    db $03          ; SGB Flag
     db $01          ; Kartuş Tipi
-    db $00          ; ROM Boyutu
-    db $00          ; RAM Boyutu
-    db $01          ; Hedef Kod
-    db $33          ; Eski Lisans Kodu
-    db $00          ; Maskesi Versiyonu
-    db $00          ; Header Checksum
-    dw $0000        ; Global Checksum
+    db $00          
+    db $00          
+    db $01          
+    db $33          
+    db $00          
+    db $00          
+    dw $0000        
 
 EntryPoint:
     di
     ld sp, $FFFE
 
-    ; LCD'yi güvenli kapat (VBlank beklemesi ile)
-.waitVBlank1:
-    ldh a, [rLY]
-    cp 144
-    jr nc, .waitVBlank1
-    
+    ; 1. LCD'yi güvenli kapat
     xor a
     ldh [rLCDC], a
 
+    ; 2. Sistem ve Paletleri Başlat
     call InitSystem
     call DetectHardwareAndPalettes
     call DetectSGBHardware
@@ -165,6 +162,8 @@ MainLoop:
     call ReadJoypad
 
     ld a, [CurrentState]
+    cp STATE_INTRO
+    jr z, .st_intro
     cp STATE_MAIN_MENU
     jr z, .st_main
     cp STATE_PLAYING
@@ -181,6 +180,9 @@ MainLoop:
     jr z, .st_color
     jr MainLoop
 
+.st_intro:
+    call State_Intro_Logic
+    jr MainLoop
 .st_main:
     call State_MainMenu_Logic     
     jr MainLoop
@@ -204,17 +206,56 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION & GRAPHICS SETUP
+; SYSTEM INITIALIZATION & KGAMER INTRO
 ; =====================================================================
 InitSystem:
-    ; DMG Renk Paletini Ayarla (Düz yeşil ekran yerine net tonlar)
-    ld a, $E4       ; %11 10 01 00 (Normal siyah-beyaz kontrast)
+    ; DMG Renk Paletini Ayarla
+    ld a, $E4       
     ldh [rBGP], a
     ldh [rOBP0], a
     ldh [rOBP1], a
 
-    ; Temel Değişkenleri Sıfırla
-    ld a, STATE_MAIN_MENU
+    ; 1. KGAMER Font Verilerini VRAM'e Yükle ($8000 adresine)
+    ld hl, $8010    
+    ld de, KGAMER_FontData
+    ld bc, KGAMER_FontDataEnd - KGAMER_FontData
+.copyFont:
+    ld a, [de]
+    ld [hl], a
+    inc hl
+    inc de
+    dec bc
+    ld a, b
+    or c
+    jr nz, .copyFont
+
+    ; 2. Tilemap'i Temizle ($9800)
+    ld hl, $9800
+    ld bc, 1024
+.clearMap:
+    ld [hl], $00
+    inc hl
+    dec bc
+    ld a, b
+    or c
+    jr nz, .clearMap
+
+    ; 3. "KGAMER" Yazısını Ekranın Ortasına Yazdır
+    ld hl, $982B    
+    ld [hl], $01    ; K
+    inc hl
+    ld [hl], $02    ; G
+    inc hl
+    ld [hl], $03    ; A
+    inc hl
+    ld [hl], $04    ; M
+    inc hl
+    ld [hl], $05    ; E
+    inc hl
+    ld [hl], $06    ; R
+
+    ; Başlangıç Durumunu INTRO Yap
+    ld a, STATE_INTRO
     ld [CurrentState], a
     ld a, STATE_PLAYING
     ld [PreviousState], a
@@ -240,7 +281,6 @@ InitSystem:
 
     call InitPlanets
 
-    ; Oyuncu ve Pozisyon Verileri
     ld hl, 16
     ld a, l 
     ld [Player1PosX], a 
@@ -288,10 +328,28 @@ InitSystem:
     ld a, h 
     ld [VersusRegenTimer + 1], a
 
-    ; LCD'yi aç (Arka plan ve OBJ aktif)
+    ; LCD'yi aç
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ldh [rLCDC], a
     ret
+
+; =====================================================================
+; KGAMER FONT PIXEL DATA (8x8 Harf Çizimleri)
+; =====================================================================
+KGAMER_FontData:
+; K (Tile 1)
+    db $42,$44,$48,$F0,$48,$44,$42,$00
+; G (Tile 2)
+    db $3C,$42,$40,$4C,$42,$42,$3C,$00
+; A (Tile 3)
+    db $18,$24,$42,$7E,$42,$42,$42,$00
+; M (Tile 4)
+    db $82,$C6,$AA,$92,$82,$82,$82,$00
+; E (Tile 5)
+    db $7E,$40,$40,$7C,$40,$40,$7E,$00
+; R (Tile 6)
+    db $7C,$42,$42,$7C,$48,$44,$42,$00
+KGAMER_FontDataEnd:
 
 InitPlanets:
     ld hl, PlanetList
@@ -354,17 +412,15 @@ WaitVBlank:
 ; ROBUST JOYPAD READING ROUTINE
 ; =====================================================================
 ReadJoypad:
-    ; 1. Action Tuşlarını Oku (Start, Select, B, A)
     ld a, $20
     ldh [rP1], a
     ldh a, [rP1]
-    ldh a, [rP1]        ; Donanım gecikmesi için
-    cpl                 ; Bitleri ters çevir (1 = basıldı)
+    ldh a, [rP1]        
+    cpl                 
     and $0F
-    swap a              ; Üst nibble'a taşı
+    swap a              
     ld b, a
 
-    ; 2. Yön Tuşlarını Oku (Down, Up, Left, Right)
     ld a, $10
     ldh [rP1], a
     ldh a, [rP1]
@@ -373,10 +429,9 @@ ReadJoypad:
     ldh a, [rP1]
     cpl
     and $0F
-    or b                ; Action ve Direction birleştir
+    or b                
     ld [JoypadState], a
     
-    ; Joypad hattını kapat
     ld a, $30
     ldh [rP1], a
     ret
@@ -410,17 +465,39 @@ SpawnEnemyAtCoords:
     ret
 
 ; =====================================================================
-; GAME STATES & LOGIC
+; GAME STATES & LOGIC (INTRO & MENUS)
 ; =====================================================================
+
+; Start tuşuna basıldığında Intro'dan Ana Menüye geçiş
+State_Intro_Logic:
+    ld a, [JoypadState]
+    bit 3, a            ; Start tuşuna basıldı mı?
+    ret z
+    
+    ; Ekranı temizle ve Ana Menüye geç
+    ld hl, $9800
+    ld bc, 1024
+.clearForMenu:
+    ld [hl], $00
+    inc hl
+    dec bc
+    ld a, b
+    or c
+    jr nz, .clearForMenu
+
+    ld a, STATE_MAIN_MENU
+    ld [CurrentState], a
+    ret
+
 State_MainMenu_Logic:
     ld a, [JoypadState]
-    bit 3, a            ; Start tuşuna basıldı mı? (Bit 7 of action -> bit 3 in combined if swapped)
+    bit 3, a            ; Start tuşu -> Oynama Başlat
     jr nz, .startPlay
-    bit 2, a            ; Select tuşu -> Versus Menu
+    bit 2, a            ; Select -> Versus Menu
     jr nz, .startVersusMenu
-    bit 0, a            ; A tuşu -> Skin Select
+    bit 0, a            ; A -> Skin Select
     jr nz, .startSkinSelect
-    bit 1, a            ; B tuşu -> Color Customize
+    bit 1, a            ; B -> Color Customize
     jr nz, .startColorCustomize
     ret
 
@@ -444,9 +521,9 @@ State_MainMenu_Logic:
 
 State_SkinSelect_Logic:
     ld a, [JoypadState]
-    bit 0, a            ; A tuşu
+    bit 0, a            
     jr nz, .toggleSkin
-    bit 3, a            ; Start tuşu ile ana menüye dön
+    bit 3, a            
     jr nz, .returnMain
     ret
 .toggleSkin:
@@ -464,11 +541,11 @@ State_VersusMenu_Logic:
 
 State_GamePaused_Logic:
     ld a, [JoypadState]
-    bit 6, a            ; Yukarı
+    bit 6, a            
     jr nz, .cursorUp
-    bit 7, a            ; Aşağı
+    bit 7, a            
     jr nz, .cursorDown
-    bit 4, a            ; A tuşu (Confirm)
+    bit 4, a            
     jr nz, .confirmSelection
     ret
 .cursorUp:
@@ -529,7 +606,6 @@ UpdateNormalModeEnemies:
     ld a, [hl]
     and a
     jr z, .nextEnemy
-    ; Düşgün aktifse buraya işlem eklenebilir
 .nextEnemy:
     ld de, 8
     add hl, de
