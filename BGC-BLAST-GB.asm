@@ -1,11 +1,10 @@
 ; =====================================================================
-; BGC BLAST - ULTIMATE MASTER ROM (RGBDS)
-; SGB 1 & 2 / CGB / Link Cable / Versus / Teleman AI & Telekinesis / Space Physics
+; BGC BLAST - ULTIMATE MASTER ROM (FULL INTEGRATED + HEALTH REGEN SYSTEM)
 ; =====================================================================
 
 INCLUDE "hardware.inc"
 
-; --- hardware.inc içinde eksik olabilecek sabitler ---
+; --- hardware.inc Sabitleri ---
 DEF rCPU          EQU $FF56
 DEF LCDCF_ON      EQU %10000000
 DEF LCDCF_BGON    EQU %00000001
@@ -27,10 +26,10 @@ DEF AI_MEDIUM               EQU 2
 DEF AI_HARD                 EQU 3
 DEF AI_EXPERT               EQU 4
 
-; --- Game Constants ---
-DEF MAX_PLAYER_HP           EQU 100
-DEF VERSUS_REGEN_INTERVAL   EQU 300  
-DEF VERSUS_REGEN_AMOUNT     EQU 5
+; --- Zamanlayıcı Sabitleri (60 FPS Tabanlı Can Dolumu) ---
+DEF VERSUS_REGEN_FRAMES     EQU 390  ; 6.5 Saniye = ~390 Kare
+DEF NORMAL_REGEN_FRAMES     EQU 300  ; 5 Saniye = 300 Kare
+DEF MAX_HP_STACK            EQU 99   ; Stacklenebilir maksimum can sınırı
 DEF MAX_ENEMIES             EQU 16
 DEF MAX_PLANETS             EQU 4
 DEF METEOR_COOLDOWN_MAX     EQU 180
@@ -43,17 +42,21 @@ PlayerSkin:           ds 1
 AstronautHatEquipped: ds 1  ; Klasik BGC Blast astronot şapkası ve kıyafeti
 SelectedPlayableChar: ds 1  ; 0 = BGC Blast (Sabit), 1 = Özelleştirilebilir Normal Arı
 BeeCustomColor:       ds 1  ; Normal arı için özel renk tonu
+
+; --- Health Bar & Regen System ---
+PlayerHP:             ds 1  ; Normal Mod Canı (Stacklenebilir)
+PlayerHPTimer:        ds 2  ; Normal Mod 5 sn Can Sayacı
+VersusHP:             ds 1  ; Versus Modu Canı (Stacklenebilir)
+VersusHPTimer:        ds 2  ; Versus Modu 6.5 sn Can Sayacı
+
 Player1PosX:          ds 2
 Player1PosY:          ds 2
 Player2PosX:          ds 2
 Player2PosY:          ds 2
-Player1HP:            ds 2
-Player2HP:            ds 2
-Score:                ds 4  ; Skor (ROM/SRAM kayıt alanı)
+Score:                ds 4  ; Skor (SRAM Kayıt Alanı)
 StarFieldActive:      ds 1
 HardwareMode:         ds 1
 IsSuperGameBoy:       ds 1
-DMG_PaletteChoice:    ds 1
 LinkConnected:        ds 1
 LinkDataOut:          ds 1
 LinkDataIn:           ds 1
@@ -64,7 +67,6 @@ TelemanFlightState:   ds 1  ; Teleman uçma ve yakın dövüş durumu
 DaggerCooldown:       ds 1  ; 3 adet hançer atış sayacı
 VersusBotEnabled:     ds 1
 VersusAIDifficulty:   ds 1
-VersusRegenTimer:     ds 2
 PauseCursorPos:       ds 1
 VersusMenuCursor:     ds 1
 RandomSeed:           ds 2
@@ -83,38 +85,37 @@ PlanetList:           ds MAX_PLANETS * 6
 JoypadState:          ds 1  
 
 ; =====================================================================
-; ROM HEADER (ZORUNLU NINTENDO ALANI - $0100 - $014F)
+; ROM HEADER ($0100 - $014F)
 ; =====================================================================
 SECTION "Header", ROM0[$0100]
     di
     jp EntryPoint
 
-    ; Resmi Nintendo Logo Verisi (ASLA değiştirilemez - emülatör açılış şartıdır)
+    ; Resmi Nintendo Logo Verisi (ASLA değiştirilemez)
     db $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
     db $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99
     db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E
 
-    db "BGC BLAST", 0, 0, 0   ; Oyun Başlığı (16 Bayt)
-    db $80                    ; CGB Flag ($80 = CGB/DMG uyumlu)
-    db $00,$00                ; Yeni Lisans Kodu
-    db $03                    ; SGB Flag ($03 = Super Game Boy 1 & 2 Destekler)
-    db $01                    ; Kartuş Tipi (ROM + SRAM for saving)
-    db $01                    ; ROM Boyutu (64KB)
-    db $01                    ; RAM Boyutu (SRAM for Score Saving)
-    db $33                    ; Eski Lisans Kodu ($33)
+    db "BGC BLAST", 0, 0, 0   ; Oyun Başlığı
+    db $80                    ; CGB Flag
+    db $03                    ; SGB Flag (Super Game Boy 1 & 2 Desteği)
+    db $01                    ; Kartuş Tipi (ROM + SRAM)
+    db $01                    ; ROM Boyutu
+    db $01                    ; RAM Boyutu (SRAM Skor Kaydı)
+    db $33                    ; Eski Lisans Kodu
     db $01                    ; Mask ROM Sürümü
-    db $00                    ; Header Checksum (rgbfix otomatik doldurur)
-    dw $0000                  ; Global Checksum (rgbfix otomatik doldurur)
+    db $00                    ; Header Checksum (rgbfix doldurur)
+    dw $0000                  ; Global Checksum (rgbfix doldurur)
 
 ; =====================================================================
-; ENTRY POINT (KODUN BAŞLADIĞI KESİN NOKTA - $0150)
+; ENTRY POINT ($0150)
 ; =====================================================================
 SECTION "GameEntry", ROM0[$0150]
 EntryPoint:
     di
     ld sp, $FFFE
 
-    ; LCD Kapatılmadan Önce Güvenli VBlank Beklemesi
+    ; Güvenli VBlank Beklemesi (Yeşil Ekran / Donma Önleyici)
 .waitVBL_Startup:
     ldh a, [rLY]
     cp 144
@@ -134,7 +135,7 @@ EntryPoint:
     call InitSGBSupport       
     call InitLinkCable        
 
-    ; 3. LCD'yi ve Arka Planı Aç
+    ; 3. LCD'yi Aç
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ldh [rLCDC], a
 
@@ -142,6 +143,7 @@ MainLoop:
     call WaitVBlank
     call ReadJoypad
     call UpdateLinkCableTransfer  
+    call UpdateHealthRegeneration ; Can dolum ve stackleme sistemini çalıştır
 
     ld a, [CurrentState]
     cp STATE_INTRO
@@ -188,10 +190,9 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION (TERMINAL BIOS + SPACE BG + DUAL CHARS)
+; SYSTEM INITIALIZATION (TERMINAL BIOS + SPACE BG + DUAL CHARS + HP)
 ; =====================================================================
 InitSystem:
-    ; DMG Renk Paletini Ayarla (Metalik Kontrast)
     ld a, %11011000      
     ldh [rBGP], a
     ldh [rOBP0], a
@@ -259,7 +260,7 @@ InitSystem:
     ld de, Str_Prompt
     call PrintTerminalString
 
-    ; Başlangıç Durumları
+    ; Başlangıç Durumları ve Can Değerleri
     ld a, STATE_INTRO
     ld [CurrentState], a
     ld a, STATE_PLAYING
@@ -267,9 +268,28 @@ InitSystem:
     ld a, 1
     ld [StarFieldActive], a
     ld a, 1
-    ld [AstronautHatEquipped], a ; Klasik karakter astronot şapkası ve kıyafeti aktif
+    ld [AstronautHatEquipped], a 
     ld a, 3
-    ld [DaggerCooldown], a      ; 3 Hançer kapasitesi
+    ld [DaggerCooldown], a      
+
+    ; Can ve Sayaç Atamaları
+    ld a, 10                ; Normal Mod Başlangıç Canı
+    ld [PlayerHP], a
+    ld a, 5                 ; Versus Modu Başlangıç Canı
+    ld [VersusHP], a
+
+    ld hl, NORMAL_REGEN_FRAMES
+    ld a, l
+    ld [PlayerHPTimer], a
+    ld a, h
+    ld [PlayerHPTimer + 1], a
+
+    ld hl, VERSUS_REGEN_FRAMES
+    ld a, l
+    ld [VersusHPTimer], a
+    ld a, h
+    ld [VersusHPTimer + 1], a
+
     xor a
     ld [PauseCursorPos], a
     ld [LinkConnected], a
@@ -278,7 +298,6 @@ InitSystem:
     call InitPlanets
     ret
 
-; --- Terminal String Yazdırma Fonksiyonu ---
 PrintTerminalString:
 .printLoop:
     ld a, [de]
@@ -291,7 +310,72 @@ PrintTerminalString:
     jr .printLoop
 
 ; =====================================================================
-; GAME BOY LINK CABLE PROTOCOL RUTİNLERİ
+; CAN REGEN VE HEALTH BAR SİSTEMİ (NORMAL & VERSUS)
+; =====================================================================
+UpdateHealthRegeneration:
+    ld a, [CurrentState]
+    cp STATE_PLAYING
+    jr z, .regenNormal
+    cp STATE_VERSUS_PLAYING
+    jr z, .regenVersus
+    ret
+
+.regenNormal:
+    ; Normal Mod: Her 5 saniyede (300 kare) 1 can dolar, stacklenir
+    ld hl, PlayerHPTimer
+    ld a, [hl]
+    dec a
+    ld [hl], a
+    inc hl
+    ld a, [hl]
+    sbc 0
+    ld [hl], a
+    or a
+    ret nz  
+
+    ld hl, PlayerHP
+    ld a, [hl]
+    cp MAX_HP_STACK
+    jr nc, .resetNormalTimer
+    inc [hl]
+
+.resetNormalTimer:
+    ld hl, NORMAL_REGEN_FRAMES
+    ld a, l
+    ld [PlayerHPTimer], a
+    ld a, h
+    ld [PlayerHPTimer + 1], a
+    ret
+
+.regenVersus:
+    ; Versus Modu: Her 6.5 saniyede (390 kare) 1 can dolar, stacklenir
+    ld hl, VersusHPTimer
+    ld a, [hl]
+    dec a
+    ld [hl], a
+    inc hl
+    ld a, [hl]
+    sbc 0
+    ld [hl], a
+    or a
+    ret nz  
+
+    ld hl, VersusHP
+    ld a, [hl]
+    cp MAX_HP_STACK
+    jr nc, .resetVersusTimer
+    inc [hl]
+
+.resetVersusTimer:
+    ld hl, VERSUS_REGEN_FRAMES
+    ld a, l
+    ld [VersusHPTimer], a
+    ld a, h
+    ld [VersusHPTimer + 1], a
+    ret
+
+; =====================================================================
+; LINK CABLE & SGB PROTOCOL RUTİNLERİ
 ; =====================================================================
 InitLinkCable:
     xor a
@@ -316,9 +400,6 @@ UpdateLinkCableTransfer:
 .transferBusy:
     ret
 
-; =====================================================================
-; SUPER GAME BOY (SGB 1 & SGB 2) PROTOKOL RUTİNLERİ
-; =====================================================================
 InitSGBSupport:
     ld hl, SGB_Packet_MLT_REQ
     call SendSGBPacket
@@ -335,70 +416,58 @@ SendSGBPacket:
     and $07                 
     ret z                   
     ld b, a                 
-
 .packet_loop:
     push bc
     xor a
     ldh [rP1], a
     ld a, $30
     ldh [rP1], a            
-
     ld c, 16                
 .byte_loop:
     ld a, [hl+]             
     ld e, a                 
     ld d, 8                 
-
 .bit_loop:
     srl e                   
     jr c, .send_one         
-
     ld a, $20               
     ldh [rP1], a
     ld a, $30               
     ldh [rP1], a
     jr .next_bit
-
 .send_one:
     ld a, $10               
     ldh [rP1], a
     ld a, $30               
     ldh [rP1], a
-
 .next_bit:
     dec d
     jr nz, .bit_loop
-
     dec c
     jr nz, .byte_loop
-
     ld a, $20               
     ldh [rP1], a
     ld a, $30               
     ldh [rP1], a
-
     pop bc
     dec b
     jr nz, .packet_loop
     ret
 
 ; =====================================================================
-; METİNLER, FONT VE KARAKTER GRAFİKLERİ
+; METİNLER, FONT VE GRAFİKLER
 ; =====================================================================
 Str_Title:  db "BGC BLAST ULTIMATE", 0
-Str_Sub:    db "SGB + LINK + TELEMAN", 0
+Str_Sub:    db "SGB + LINK + HP REGEN", 0
 Str_Prompt: db "PRESS START TO PLAY", 0
 
 BGC_Astronaut_Character_Data:
-    ; Klasik BGC Blast Astronot Şapkası ve Metalik Gövde (Tile 1)
     db $3C, $7E, $FF, $DB, $FF, $A5, $5A, $24
     db $81, $C3, $E7, $FF, $BD, $99, $55, $AA
-    ; Astronot Kıyafeti ve Kanatlar (Tile 2)
     db $18, $3C, $7E, $FF, $E7, $C3, $81, $00
     db $AA, $55, $99, $BD, $FF, $E7, $C3, $81
 
 Space_Stars_Planets_Data:
-    ; Uzay Arka Planı, Yıldızlar ve Gezegen Dokuları
     db $81, $42, $24, $18, $18, $24, $42, $81
     db $FF, $81, $BD, $A5, $3C, $7E, $FF, $81
     db $3C, $42, $81, $81, $81, $81, $42, $3C
@@ -522,7 +591,6 @@ GetRandomNumber:
 ; TELEMAN & SPACE PHYSICS MECHANICS
 ; =====================================================================
 CheckAndSpawnTelemanMeteors:
-    ; Teleman gezegenden telekinezi ile meteor koparıp fırlatır
     ld a, [BossActive]
     and a
     ret z
@@ -571,19 +639,24 @@ State_MainMenu_Logic:
     ld a, [JoypadState]
     bit 3, a            
     jr nz, .startPlay
+    bit 1, a            ; B tuşu ile Versus moduna geçiş
+    jr nz, .toVersus
     ret
 .startPlay:
     ld a, STATE_PLAYING
     ld [CurrentState], a
     ld [PreviousState], a
     ret
+.toVersus:
+    ld a, STATE_VERSUS_PLAYING
+    ld [CurrentState], a
+    ret
 
 State_SkinSelect_Logic:
-    ; Normal Arı Karakteri Özelleştirme Menüsü (Klasik BGC Blast sabit kalır)
     ld a, [JoypadState]
-    bit 4, a            ; Yön tuşları ile arı rengini değiştir
+    bit 4, a            
     jr nz, .changeBeeColor
-    bit 3, a            ; Start ile ana menüye dön
+    bit 3, a            
     jr nz, .returnMenu
     ret
 .changeBeeColor:
@@ -597,7 +670,7 @@ State_SkinSelect_Logic:
 
 State_VersusMenu_Logic:
     ld a, [JoypadState]
-    bit 3, a            ; Start ile Versus Savaşını Başlat
+    bit 3, a            
     jr nz, .startVersusMatch
     ret
 .startVersusMatch:
@@ -607,7 +680,6 @@ State_VersusMenu_Logic:
 
 State_GamePaused_Logic:
 State_ColorCustomize_Logic:
-State_VersusPlaying_Logic:
     ret
 
 State_GamePlaying_Logic:
@@ -620,24 +692,25 @@ State_GamePlaying_Logic:
     ld [CurrentState], a
     ret
 .noPause:
-    call UpdateSpacePhysicsAndWater    ; Uzay suyu, havada kalma ve su tuzakları koruması
-    call CheckAndSpawnTelemanMeteors   ; Teleman telekinezi ile meteor fırlatma
-    call UpdateEnemiesAndUFOs          ; UFO patlama olasılıkları ve robot elektrik/patlama efektleri
-    call UpdateMeteorsAndScoreSave     ; Ölmüş robot benzin yeri patlaması ve SRAM skor kayıt
+    call UpdateSpacePhysicsAndWater    
+    call CheckAndSpawnTelemanMeteors   
+    call UpdateEnemiesAndUFOs          
+    call UpdateMeteorsAndScoreSave     
+    ret
+
+State_VersusPlaying_Logic:
+    call UpdateSpacePhysicsAndWater
+    call CheckAndSpawnTelemanMeteors
     ret
 
 UpdateSpacePhysicsAndWater:
-    ; Klasik karakter (Astronot kostümlü) su tuzaklarından ve sudan hasar almaz.
+    ; Klasik karakter (Astronot kostümlü) sudan ve su tuzaklarından hasar almaz.
     ; Uzay suyu orta menzilde kalır ve havada asılı kalma (floating) davranışı gösterir.
     ret
 
 UpdateEnemiesAndUFOs:
-    ; UFO'lar patladığında:
-    ; - %40 ihtimalle hiç böcek çıkmaz (direk patlar).
-    ; - %30 ihtimalle robot böcek çıkar.
-    ; - %30 ihtimalle uzaylı böcek çıkar (uzaylı böcekler sudan daha az hasar görür).
-    ; Robotlar ölünce %50 ihtimalle patlar, %50 ihtimalle elektrik çarpar.
-    ; Normal robotlar oyuncuya tek atar ancak Teleman'a tek atamaz.
+    ; UFO patlama olasılıkları (%40 boş, %30 robot böcek, %30 uzaylı böcek)
+    ; Robot patlama/elektrik efektleri ve Teleman etkileşimleri
     ld hl, EnemyList
     ld b, MAX_ENEMIES
 .enemyLoop:
@@ -652,6 +725,5 @@ UpdateEnemiesAndUFOs:
     ret
 
 UpdateMeteorsAndScoreSave:
-    ; Ölmüş robotların benzin yeri açık olduğu için vurulduğunda patlar.
-    ; Meteorlara veya robotlara vurulduğunda skor kazanılır ve SRAM alanına kaydedilir.
+    ; Ölmüş robotların benzin yeri patlaması ve SRAM skor kayıt sistemi
     ret
