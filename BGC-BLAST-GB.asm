@@ -1,14 +1,14 @@
 ; =====================================================================
-; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM
+; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (EMULATOR READY)
 ; =====================================================================
 
 INCLUDE "hardware.inc"
 
-; --- hardware.inc içinde eksik veya düzeltilmesi gereken sabitler ---
-DEF rCPU          EQU $FF56       ; Doğru HRAM aralığında ($FF00 - $FFFF)
-DEF LCDCF_ON      EQU %10000000   ; LCD On
-DEF LCDCF_BGON    EQU %00000001   ; Background Display On
-DEF LCDCF_OBJON   EQU %00000010   ; Sprite (OBJ) Display On
+; --- hardware.inc içinde eksik olabilecek sabitler ---
+DEF rCPU          EQU $FF56
+DEF LCDCF_ON      EQU %10000000
+DEF LCDCF_BGON    EQU %00000001
+DEF LCDCF_OBJON   EQU %00000010
 
 ; --- Game States ---
 DEF STATE_INTRO             EQU 0  
@@ -77,35 +77,38 @@ PlanetList:           ds MAX_PLANETS * 6
 JoypadState:          ds 1  
 
 ; =====================================================================
-; ROM HEADER & ENTRY POINT
+; ROM HEADER (ZORUNLU NINTENDO ALANI - $0100 - $014F)
 ; =====================================================================
 SECTION "Header", ROM0[$0100]
     di
     jp EntryPoint
 
-    ; Resmi Nintendo Logo Verisi (Zorunludur)
+    ; Resmi Nintendo Logo Verisi (ASLA değiştirilemez - emülatör açılış şartıdır)
     db $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
     db $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99
     db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E
 
-    db "BGC BLAST", 0, 0, 0
-    db $80          ; CGB Flag
-    ds 2, 0         
-    db $03          ; SGB Flag
-    db $01          ; Kartuş Tipi
-    db $00          
-    db $00          
-    db $33          ; Standart Lisans Kodu ($33)
-    db $33          
-    db $00          
-    db $00          
-    dw $0000        
+    db "BGC BLAST", 0, 0, 0   ; Oyun Başlığı (16 Bayt)
+    db $80                    ; CGB Flag ($80 = CGB/DMG uyumlu)
+    db $00,$00                ; Yeni Lisans Kodu
+    db $03                    ; SGB Flag ($03 = Super Game Boy destekler)
+    db $01                    ; Kartuş Tipi (ROM ONLY)
+    db $00                    ; ROM Boyutu (32KB)
+    db $00                    ; RAM Boyutu (Yok)
+    db $33                    ; Eski Lisans Kodu ($33)
+    db $01                    ; Mask ROM Sürümü
+    db $00                    ; Header Checksum (rgbfix otomatik doldurur)
+    dw $0000                  ; Global Checksum (rgbfix otomatik doldurur)
 
+; =====================================================================
+; ENTRY POINT (KODUN BAŞLADIĞI KESİN NOKTA - $0150)
+; =====================================================================
+SECTION "GameEntry", ROM0[$0150]
 EntryPoint:
     di
     ld sp, $FFFE
 
-    ; LCD Kapatılmadan Önce VBlank Beklenmeli (Kilitlenmeyi Önler)
+    ; LCD Kapatılmadan Önce Güvenli VBlank Beklemesi
 .waitVBL_Startup:
     ldh a, [rLY]
     cp 144
@@ -119,12 +122,12 @@ EntryPoint:
     xor a
     ldh [rLCDC], a
 
-    ; 2. Sistem ve Grafik Verilerini Yükle (LCD Kapalıyken)
+    ; 2. Sistem ve Grafik Verilerini Yükle
     call InitSystem
     call DetectHardwareAndPalettes
     call DetectSGBHardware
 
-    ; 3. Her şey hazır, LCD'yi ve Arka Planı Aç
+    ; 3. LCD'yi ve Arka Planı Aç
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ldh [rLCDC], a
 
