@@ -1,8 +1,14 @@
 ; =====================================================================
-; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (HARDWARE.INC UYUMLU)
+; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM
 ; =====================================================================
 
 INCLUDE "hardware.inc"
+
+; --- hardware.inc içinde eksik veya farklı olabilen ek sabitler ---
+DEF rCPU          EQU $0FFC       ; CGB / DMG donanım tanılama byte adresi
+DEF LCDCF_ON      EQU %10000000   ; LCD On
+DEF LCDCF_BGON    EQU %00000001   ; Background Display On
+DEF LCDCF_OBJON   EQU %00000010   ; Sprite (OBJ) Display On
 
 ; --- Game States ---
 DEF STATE_INTRO             EQU 0  
