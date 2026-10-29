@@ -17,25 +17,13 @@ jobs:
       - name: 2. Çıktı Klasörünü Oluştur
         run: mkdir rom_outputs
 
-      - name: 3. Resmi hardware.inc ve Donanım Uyumluluk Dosyalarını İndir
+      - name: 3. RGBDS Araç Zincirini Kur
         run: |
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
-          Write-Host "hardware.inc basariyla indirildi.[span_0](start_span)"[span_0](end_span)
-
-          if (-not (Test-Path "hardware_compat.inc")) {
-              New-Item -ItemType File -Name "hardware_compat.inc" -Force
-              Write-Host "hardware_compat.inc olusturuldu."
-          }
-
-      - name: 4. RGBDS Araç Zincirini Kur (Chocolatey)
-        run: |
-          # windows-latest üzerinde choco zaten hazırdır, doğrudan paketleri kuruyoruz
           choco install rgbds -y
-          
-          # Komut satırı yollarını (PATH) güncel oturuma yansıt
+          echo "$env:SystemDrive\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
           echo "C:\ProgramData\chocolatey\lib\rgbds\tools" >> $env:GITHUB_PATH
 
-      - name: 5. ROM Sürümlerini Derle ve Mühürle
+      - name: 4. ROM Sürümlerini Derle ve Mühürle
         run: |
           Write-Host "--- 1. DMG (Klasik Game Boy) Sürümü Derleniyor ---"
           rgbasm -D TARGET_DMG=1 -o build_dmg.o BGC-BLAST-GB.asm
@@ -52,7 +40,7 @@ jobs:
           rgblink -o rom_outputs/BGC-BLAST-Universal.gb build_all.o
           rgbfix -v -p 0xFF rom_outputs/BGC-BLAST-Universal.gb
 
-      - name: 6. Tüm Sürümleri Artifact Olarak Kaydet
+      - name: 5. Tüm Sürümleri Artifact Olarak Kaydet
         uses: actions/upload-artifact@v4
         with:
           name: BGC-BLAST-All-Versions-ROMs
