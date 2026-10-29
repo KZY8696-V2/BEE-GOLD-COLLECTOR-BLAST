@@ -1,62 +1,57 @@
-name: Build-native-roms
+name: BGC Blast Full Build Pipeline (DMG, CGB & Universal)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main", "master" ]
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout Repository
+      - name: 1. Depoyu Klonla
         uses: actions/checkout@v4
 
-      - name: Install RGBDS, Download hardware.inc and Compile All ROMs
-        shell: pwsh
+      - name: 2. Çıktı Klasörünü Oluştur
+        run: mkdir rom_outputs
+
+      - name: 3. Resmi hardware.inc ve Donanım Uyumluluk Dosyalarını İndir
         run: |
-          # 1. EN BAŞTA: hardware.inc dosyasını indir
-          Write-Host "hardware.inc indiriliyor..."
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
+          Write-Host "hardware.inc basariyla indirildi.[span_0](start_span)"[span_0](end_span)
 
-          # 2. Çıktı klasörünü oluştur ve hardware.inc'i oraya da kopyala
-          New-Item -ItemType Directory -Force -Path "rom_outputs"
-          Copy-Item "hardware.inc" -Destination "rom_outputs/hardware.inc"
-
-          # 3. Chocolatey ile RGBDS kur
-          choco install rgbds -y
-          $rgbdsPath = "C:\ProgramData\chocolatey\lib\rgbds\rgbds"
-          if (!(Test-Path $rgbdsPath)) {
-              $rgbdsPath = "C:\ProgramData\chocolatey\bin"
+          if (-not (Test-Path "hardware_compat.inc")) {
+              New-Item -ItemType File -Name "hardware_compat.inc" -Force
+              Write-Host "hardware_compat.inc olusturuldu."
           }
-          echo "$rgbdsPath" >> $env:GITHUB_PATH
-          $env:Path += ";$rgbdsPath"
 
-          # 4. Ana Nesne Dosyasını Derle
-          Write-Host "Assembly Derleniyor..."
-          rgbasm -i . -o main.o BGC-BLAST-GB.asm
+      - name: 4. RGBDS Araç Zincirini Kur (Chocolatey)
+        uses: chocolatey/setup-choc@v2
+      
+      - name: RGBDS Paketini Kur
+        run: choco install rgbds -y
 
-          # --- 5. DMG SÜRÜMÜ (Orijinal Game Boy) ---
-          Write-Host "DMG ROM Derleniyor ve Mühürleniyor..."
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
-          rgbfix -v -p 0xFF rom_outputs/bgc_blast_DMG.gb
+      - name: 5. ROM Sürümlerini Derle ve Mühürle
+        run: |
+          Write-Host "--- 1. DMG (Klasik Game Boy) Sürümü Derleniyor ---"
+          rgbasm -D TARGET_DMG=1 -o build_dmg.o BGC-BLAST-GB.asm
+          rgblink -o rom_outputs/BGC-BLAST-DMG.gb build_dmg.o
+          rgbfix -v -p 0xFF rom_outputs/BGC-BLAST-DMG.gb
 
-          # --- 6. CGB SÜRÜMÜ (Game Boy Color) ---
-          Write-Host "CGB ROM Derleniyor ve Mühürleniyor..."
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
-          rgbfix -v -p 0xFF -c rom_outputs/bgc_blast_CGB.gb
+          Write-Host "--- 2. CGB (Game Boy Color) Sürümü Derleniyor ---"
+          rgbasm -D TARGET_CGB=1 -o build_cgb.o BGC-BLAST-GB.asm
+          rgblink -o rom_outputs/BGC-BLAST-CGB.gb build_cgb.o
+          rgbfix -v -c -p 0xFF rom_outputs/BGC-BLAST-CGB.gb
 
-          # --- 7. ALL SÜRÜMÜ (Universal - DMG & CGB) ---
-          Write-Host "Universal (ALL) ROM Derleniyor ve Mühürleniyor..."
-          rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
-          rgbfix -v -p 0xFF rom_outputs/bgc_blast_ALL.gb
+          Write-Host "--- 3. Universal (Evrensel / Tüm Sistemler) Sürüm Derleniyor ---"
+          rgbasm -D TARGET_ALL=1 -o build_all.o BGC-BLAST-GB.asm
+          rgblink -o rom_outputs/BGC-BLAST-Universal.gb build_all.o
+          rgbfix -v -p 0xFF rom_outputs/BGC-BLAST-Universal.gb
 
-
-
-      - name: Upload ROM Artifacts
+      - name: 6. Tüm Sürümleri Artifact Olarak Kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: bgc-blast-roms
-          path: rom_outputs/
+          name: BGC-BLAST-All-Versions-ROMs
+          path: rom_outputs/*.gb
