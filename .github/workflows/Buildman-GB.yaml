@@ -28,10 +28,12 @@ jobs:
           }
 
       - name: 4. RGBDS Araç Zincirini Kur (Chocolatey)
-        uses: chocolatey/setup-choc@v2
-      
-      - name: RGBDS Paketini Kur
-        run: choco install rgbds -y
+        run: |
+          # windows-latest üzerinde choco zaten hazırdır, doğrudan paketleri kuruyoruz
+          choco install rgbds -y
+          
+          # Komut satırı yollarını (PATH) güncel oturuma yansıt
+          echo "C:\ProgramData\chocolatey\lib\rgbds\tools" >> $env:GITHUB_PATH
 
       - name: 5. ROM Sürümlerini Derle ve Mühürle
         run: |
