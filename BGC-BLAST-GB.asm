@@ -51,6 +51,10 @@ DEF AI_MEDIUM               EQU 2
 DEF AI_HARD                 EQU 3
 DEF AI_EXPERT               EQU 4
 
+; --- Game Constants ---
+DEF MAX_PLAYER_HP           EQU 100
+DEF VERSUS_REGEN_INTERVAL   EQU 300  ; <-- Eksik olan sabit buraya eklendi
+DEF VERSUS_REGEN_AMOUNT     EQU 5
 DEF MAX_ENEMIES             EQU 16
 DEF MAX_PLANETS             EQU 4
 DEF METEOR_COOLDOWN_MAX     EQU 180
