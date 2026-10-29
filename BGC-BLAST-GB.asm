@@ -2,6 +2,8 @@
 ; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (FINAL FIXED VERSION)
 ; =====================================================================
 
+INCLUDE "hardware.inc"
+
 ; --- RGBDS Donanım ve Register Sabitleri (8-bit Offsetler) ---
 DEF rP1       EQU $00
 DEF rSB       EQU $01
