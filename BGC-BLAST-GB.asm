@@ -4,8 +4,8 @@
 
 INCLUDE "hardware.inc"
 
-; --- hardware.inc içinde eksik veya farklı olabilen ek sabitler ---
-DEF rCPU          EQU FF56        ; CGB / DMG donanım tanılama byte adresi
+; --- hardware.inc içinde eksik veya düzeltilmesi gereken sabitler ---
+DEF rCPU          EQU $FF56       ; Doğru HRAM aralığında ($FF00 - $FFFF)
 DEF LCDCF_ON      EQU %10000000   ; LCD On
 DEF LCDCF_BGON    EQU %00000001   ; Background Display On
 DEF LCDCF_OBJON   EQU %00000010   ; Sprite (OBJ) Display On
