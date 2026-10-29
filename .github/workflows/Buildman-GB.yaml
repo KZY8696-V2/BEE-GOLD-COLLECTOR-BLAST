@@ -41,17 +41,18 @@ jobs:
           # --- 5. DMG SÜRÜMÜ (Orijinal Game Boy) ---
           Write-Host "DMG ROM Derleniyor ve Mühürleniyor..."
           rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
-          rgbfix -v -p 0xFF -C -g rom_outputs/bgc_blast_DMG.gb
+          rgbfix -v -p 0xFF rom_outputs/bgc_blast_DMG.gb
 
           # --- 6. CGB SÜRÜMÜ (Game Boy Color) ---
           Write-Host "CGB ROM Derleniyor ve Mühürleniyor..."
           rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
-          rgbfix -v -p 0xFF -c -C -g rom_outputs/bgc_blast_CGB.gb
+          rgbfix -v -p 0xFF -c rom_outputs/bgc_blast_CGB.gb
 
           # --- 7. ALL SÜRÜMÜ (Universal - DMG & CGB) ---
           Write-Host "Universal (ALL) ROM Derleniyor ve Mühürleniyor..."
           rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
-          rgbfix -v -p 0xFF -cg -C -g rom_outputs/bgc_blast_ALL.gb
+          rgbfix -v -p 0xFF rom_outputs/bgc_blast_ALL.gb
+
 
 
       - name: Upload ROM Artifacts
