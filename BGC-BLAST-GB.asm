@@ -1,5 +1,5 @@
 ; =====================================================================
-; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM
+; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (FINAL FIXED VERSION)
 ; =====================================================================
 
 ; --- RGBDS Donanım ve Register Sabitleri (8-bit Offsetler) ---
@@ -130,7 +130,7 @@ EntryPoint:
     di
     ld sp, $FFFE
 
-    ; --- KRİTİK DÜZELTME: LCD Kapatılmadan Önce VBlank Beklenmeli ---
+    ; LCD Kapatılmadan Önce VBlank Beklenmeli (Kilitlenmeyi Önler)
 .waitVBL_Startup:
     ldh a, [rLY]
     cp 144
@@ -202,7 +202,7 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION (LCD KAPALIYKEN ÇALIŞIR)
+; SYSTEM INITIALIZATION (SAYAÇ TAŞMASI GİDERİLDİ)
 ; =====================================================================
 InitSystem:
     ; DMG Renk Paletini Ayarla
@@ -211,30 +211,29 @@ InitSystem:
     ldh [rOBP0], a
     ldh [rOBP1], a
 
-    ; 1. KGAMER Font Verilerini VRAM'e Yükle ($8000 adresine)
+    ; 1. KGAMER Font Verilerini VRAM'e Yükle (Güvenli 8-bit Sayaç)
     ld hl, $8000    
     ld de, KGAMER_FontData
-    ld bc, KGAMER_FontDataEnd - KGAMER_FontData
+    ld b, 48                ; 6 harf * 8 bayt = 48 bayt sabit uzunluk
 .copyFont:
     ld a, [de]
     ld [hl], a
     inc hl
     inc de
-    dec bc
-    ld a, b
-    or c
+    dec b
     jr nz, .copyFont
 
-    ; 2. Tilemap'i Temizle ($9800)
+    ; 2. Tilemap'i Temizle ($9800) - Güvenli Çift Sayaç Sıfırlama
     ld hl, $9800
-    ld bc, 1024
+    ld b, 4                 ; 4 * 256 = 1024 bayt
+    ld c, 0
 .clearMap:
     xor a
     ld [hl], a
     inc hl
-    dec bc
-    ld a, b
-    or c
+    dec c
+    jr nz, .clearMap
+    dec b
     jr nz, .clearMap
 
     ; 3. "KGAMER" Yazısını Ekranın Ortasına Yazdır ($982B)
