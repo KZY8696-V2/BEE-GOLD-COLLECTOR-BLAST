@@ -3,6 +3,7 @@
 ; =====================================================================
 
 INCLUDE "hardware.inc"
+INCLUDE "hardware_compat.inc"
 
 ; --- hardware.inc Sabitleri ---
 DEF rCPU          EQU $FF56
