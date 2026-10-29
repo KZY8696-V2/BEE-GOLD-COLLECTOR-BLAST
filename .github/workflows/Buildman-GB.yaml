@@ -38,17 +38,15 @@ jobs:
           # 1. Object Dosyasını Derle
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
 
-          # 2. DMG Sürümü (Başlık 11 karaktere kısaltıldı, çakışan bayraklar temizlendi)
+          # 2. DMG Sürümü (rgbfix yerine sadece rgblink ile padding yapıyoruz)
           rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
-          rgbfix -v -p 0xFF -t "BGC-DMG" rom_outputs/bgc_blast_DMG.gb
 
           # 3. CGB Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
-          rgbfix -v -p 0xFF -t "BGC-CGB" -c rom_outputs/bgc_blast_CGB.gb
 
           # 4. ALL Evrensel Master ROM Sürümü
           rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
-          rgbfix -v -p 0xFF -t "BGC-ALL" -v rom_outputs/bgc_blast_ALL.gb
+
 
 
       - name: Upload ROM Artifacts
