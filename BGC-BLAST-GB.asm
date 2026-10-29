@@ -36,8 +36,8 @@ DEF LCDCF_OBJON   EQU %00000010
 DEF LCDCF_BGON    EQU %00000001
 
 ; --- Game States ---
-DEF STATE_INTRO             EQU 0  ; KGAMER Açılış Ekranı
-DEF STATE_MAIN_MENU         EQU 1  ; Asıl Ana Menü
+DEF STATE_INTRO             EQU 0  
+DEF STATE_MAIN_MENU         EQU 1  
 DEF STATE_PLAYING           EQU 2
 DEF STATE_PAUSED            EQU 3
 DEF STATE_SKIN_SELECT       EQU 4
@@ -45,36 +45,15 @@ DEF STATE_VERSUS_MENU       EQU 5
 DEF STATE_VERSUS_PLAYING    EQU 6
 DEF STATE_COLOR_CUSTOMIZE   EQU 7
 
-; --- AI Difficulties ---
+; --- AI & Enemies ---
 DEF AI_EASY                 EQU 1
 DEF AI_MEDIUM               EQU 2
 DEF AI_HARD                 EQU 3
 DEF AI_EXPERT               EQU 4
 
-; --- Enemy & Entity Types ---
-DEF ENEMY_TYPE_ALIEN_BUG    EQU 1
-DEF ENEMY_TYPE_ROBO_BUG     EQU 2
-DEF ENEMY_TYPE_UFO          EQU 3
-DEF ENEMY_TYPE_BOSS_TELEMAN EQU 4
-DEF ENEMY_TYPE_METEOR       EQU 5
-
-; --- Game Constants ---
-DEF MAX_PLAYER_HP           EQU 100
-DEF VERSUS_REGEN_INTERVAL   EQU 300
-DEF VERSUS_REGEN_AMOUNT     EQU 5
 DEF MAX_ENEMIES             EQU 16
 DEF MAX_PLANETS             EQU 4
 DEF METEOR_COOLDOWN_MAX     EQU 180
-
-; --- Structure Offsets ---
-DEF ENEMY_ACTIVE            EQU 0
-DEF ENEMY_TYPE              EQU 1
-DEF ENEMY_X_POS             EQU 2
-DEF ENEMY_Y_POS             EQU 4
-
-DEF PLANET_ACTIVE           EQU 0
-DEF PLANET_X_POS            EQU 1
-DEF PLANET_Y_POS            EQU 3
 
 ; --- Variables Section (WRAM) ---
 SECTION "GameVariables", WRAM0
@@ -104,7 +83,6 @@ VersusRegenTimer:     ds 2
 PauseCursorPos:       ds 1
 VersusMenuCursor:     ds 1
 RandomSeed:           ds 2
-
 TelemanMeteorTimer:   ds 2  
 
 PlayerCustom_bodyColor:      ds 1
@@ -129,7 +107,7 @@ SECTION "Header", ROM0[$0100]
     ; Resmi Nintendo Logo Verisi (Zorunludur)
     db $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
     db $00,$08,$11,$1F,$88,$89,$00,$0E,$DC,$CC,$6E,$E6,$DD,$DD,$D9,$99
-    db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3e
+    db $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E
 
     db "BGC BLAST", 0, 0, 0
     db $80          ; CGB Flag
@@ -148,14 +126,18 @@ EntryPoint:
     di
     ld sp, $FFFE
 
-    ; 1. LCD'yi güvenli kapat
+    ; 1. LCD'yi Güvenli Kapat
     xor a
     ldh [rLCDC], a
 
-    ; 2. Sistem ve Paletleri Başlat
+    ; 2. Sistem ve Grafik Verilerini Yükle (LCD Kapalıyken)
     call InitSystem
     call DetectHardwareAndPalettes
     call DetectSGBHardware
+
+    ; 3. Her şey hazır, LCD'yi ve Arka Planı Aç
+    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
+    ldh [rLCDC], a
 
 MainLoop:
     call WaitVBlank
@@ -206,7 +188,7 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION & KGAMER INTRO
+; SYSTEM INITIALIZATION (LCD KAPALIYKEN ÇALIŞIR)
 ; =====================================================================
 InitSystem:
     ; DMG Renk Paletini Ayarla
@@ -216,7 +198,7 @@ InitSystem:
     ldh [rOBP1], a
 
     ; 1. KGAMER Font Verilerini VRAM'e Yükle ($8000 adresine)
-    ld hl, $8010    
+    ld hl, $8000    
     ld de, KGAMER_FontData
     ld bc, KGAMER_FontDataEnd - KGAMER_FontData
 .copyFont:
@@ -233,14 +215,15 @@ InitSystem:
     ld hl, $9800
     ld bc, 1024
 .clearMap:
-    ld [hl], $00
+    xor a
+    ld [hl], a
     inc hl
     dec bc
     ld a, b
     or c
     jr nz, .clearMap
 
-    ; 3. "KGAMER" Yazısını Ekranın Ortasına Yazdır
+    ; 3. "KGAMER" Yazısını Ekranın Ortasına Yazdır ($982B)
     ld hl, $982B    
     ld [hl], $01    ; K
     inc hl
@@ -327,10 +310,6 @@ InitSystem:
     ld [VersusRegenTimer], a 
     ld a, h 
     ld [VersusRegenTimer + 1], a
-
-    ; LCD'yi aç
-    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
-    ldh [rLCDC], a
     ret
 
 ; =====================================================================
@@ -468,7 +447,6 @@ SpawnEnemyAtCoords:
 ; GAME STATES & LOGIC (INTRO & MENUS)
 ; =====================================================================
 
-; Start tuşuna basıldığında Intro'dan Ana Menüye geçiş
 State_Intro_Logic:
     ld a, [JoypadState]
     bit 3, a            ; Start tuşuna basıldı mı?
@@ -478,7 +456,8 @@ State_Intro_Logic:
     ld hl, $9800
     ld bc, 1024
 .clearForMenu:
-    ld [hl], $00
+    xor a
+    ld [hl], a
     inc hl
     dec bc
     ld a, b
@@ -491,7 +470,7 @@ State_Intro_Logic:
 
 State_MainMenu_Logic:
     ld a, [JoypadState]
-    bit 3, a            ; Start tuşu -> Oynama Başlat
+    bit 3, a            ; Start -> Oynama Başlat
     jr nz, .startPlay
     bit 2, a            ; Select -> Versus Menu
     jr nz, .startVersusMenu
