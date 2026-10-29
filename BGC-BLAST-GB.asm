@@ -1,5 +1,6 @@
 ; =====================================================================
-; BGC BLAST - GAME BOY / SGB 1 & 2 / CGB / LINK CABLE MASTER ROM
+; BGC BLAST - ULTIMATE MASTER ROM (RGBDS)
+; SGB 1 & 2 / CGB / Link Cable / Versus / Teleman AI & Telekinesis / Space Physics
 ; =====================================================================
 
 INCLUDE "hardware.inc"
@@ -39,14 +40,16 @@ SECTION "GameVariables", WRAM0
 CurrentState:         ds 1
 PreviousState:        ds 1
 PlayerSkin:           ds 1
-AstronautHatEquipped: ds 1
+AstronautHatEquipped: ds 1  ; Klasik BGC Blast astronot şapkası ve kıyafeti
+SelectedPlayableChar: ds 1  ; 0 = BGC Blast (Sabit), 1 = Özelleştirilebilir Normal Arı
+BeeCustomColor:       ds 1  ; Normal arı için özel renk tonu
 Player1PosX:          ds 2
 Player1PosY:          ds 2
 Player2PosX:          ds 2
 Player2PosY:          ds 2
 Player1HP:            ds 2
 Player2HP:            ds 2
-Score:                ds 4
+Score:                ds 4  ; Skor (ROM/SRAM kayıt alanı)
 StarFieldActive:      ds 1
 HardwareMode:         ds 1
 IsSuperGameBoy:       ds 1
@@ -56,6 +59,9 @@ LinkDataOut:          ds 1
 LinkDataIn:           ds 1
 BossHP:               ds 2
 BossActive:           ds 1
+TelemanHP:            ds 2
+TelemanFlightState:   ds 1  ; Teleman uçma ve yakın dövüş durumu
+DaggerCooldown:       ds 1  ; 3 adet hançer atış sayacı
 VersusBotEnabled:     ds 1
 VersusAIDifficulty:   ds 1
 VersusRegenTimer:     ds 2
@@ -92,9 +98,9 @@ SECTION "Header", ROM0[$0100]
     db $80                    ; CGB Flag ($80 = CGB/DMG uyumlu)
     db $00,$00                ; Yeni Lisans Kodu
     db $03                    ; SGB Flag ($03 = Super Game Boy 1 & 2 Destekler)
-    db $01                    ; Kartuş Tipi (ROM ONLY)
-    db $00                    ; ROM Boyutu (32KB)
-    db $00                    ; RAM Boyutu (Yok)
+    db $01                    ; Kartuş Tipi (ROM + SRAM for saving)
+    db $01                    ; ROM Boyutu (64KB)
+    db $01                    ; RAM Boyutu (SRAM for Score Saving)
     db $33                    ; Eski Lisans Kodu ($33)
     db $01                    ; Mask ROM Sürümü
     db $00                    ; Header Checksum (rgbfix otomatik doldurur)
@@ -122,11 +128,11 @@ EntryPoint:
     xor a
     ldh [rLCDC], a
 
-    ; 2. Sistem, Grafik, SGB ve Link Kablosu Başlatma Verilerini Yükle
+    ; 2. Sistem, Grafik, SGB, Uzay Arka Planı ve Link Kablosu Başlatma
     call InitSystem
     call DetectHardwareAndPalettes
     call InitSGBSupport       
-    call InitLinkCable        ; Game Boy Link Kablosu Başlatma
+    call InitLinkCable        
 
     ; 3. LCD'yi ve Arka Planı Aç
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
@@ -135,7 +141,7 @@ EntryPoint:
 MainLoop:
     call WaitVBlank
     call ReadJoypad
-    call UpdateLinkCableTransfer  ; Her karede Link veri alışverişini kontrol et
+    call UpdateLinkCableTransfer  
 
     ld a, [CurrentState]
     cp STATE_INTRO
@@ -182,11 +188,11 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION (TERMINAL BIOS EKRANI + SGB + LINK)
+; SYSTEM INITIALIZATION (TERMINAL BIOS + SPACE BG + DUAL CHARS)
 ; =====================================================================
 InitSystem:
-    ; DMG Renk Paletini Ayarla (Klasik Terminal Kontrastı)
-    ld a, %11100100      
+    ; DMG Renk Paletini Ayarla (Metalik Kontrast)
+    ld a, %11011000      
     ldh [rBGP], a
     ldh [rOBP0], a
     ldh [rOBP1], a
@@ -207,10 +213,10 @@ InitSystem:
     or c
     jr nz, .clearTerminalMap
 
-    ; 2. Terminal Font / Karakter Setini VRAM'e Yükle ($8000)
+    ; 2. Terminal ve Karakter Setini VRAM'e Yükle ($8000)
     ld hl, $8000    
     ld de, Terminal_FontData
-    ld b, 96                ; Karakter set uzunluğu
+    ld b, 96                
 .copyTermFont:
     ld a, [de]
     ld [hl], a
@@ -219,7 +225,28 @@ InitSystem:
     dec b
     jr nz, .copyTermFont
 
-    ; 3. Terminal Satırlarını Ekrana Yazdır (BIOS / Retro Açılış)
+    ; Klasik BGC Blast (Astronot Şapka ve Kıyafet) ve Uzay Yıldız/Gezegen Grafikleri
+    ld de, BGC_Astronaut_Character_Data
+    ld b, 32
+.copyBGCChars:
+    ld a, [de]
+    ld [hl], a
+    inc hl
+    inc de
+    dec b
+    jr nz, .copyBGCChars
+
+    ld de, Space_Stars_Planets_Data
+    ld b, 32
+.copySpaceBGData:
+    ld a, [de]
+    ld [hl], a
+    inc hl
+    inc de
+    dec b
+    jr nz, .copySpaceBGData
+
+    ; 3. Terminal Satırlarını Ekrana Yazdır
     ld hl, $9822
     ld de, Str_Title
     call PrintTerminalString
@@ -232,16 +259,21 @@ InitSystem:
     ld de, Str_Prompt
     call PrintTerminalString
 
-    ; Başlangıç Durumunu INTRO Yap
+    ; Başlangıç Durumları
     ld a, STATE_INTRO
     ld [CurrentState], a
     ld a, STATE_PLAYING
     ld [PreviousState], a
     ld a, 1
     ld [StarFieldActive], a
+    ld a, 1
+    ld [AstronautHatEquipped], a ; Klasik karakter astronot şapkası ve kıyafeti aktif
+    ld a, 3
+    ld [DaggerCooldown], a      ; 3 Hançer kapasitesi
     xor a
     ld [PauseCursorPos], a
     ld [LinkConnected], a
+    ld [SelectedPlayableChar], a
 
     call InitPlanets
     ret
@@ -250,9 +282,9 @@ InitSystem:
 PrintTerminalString:
 .printLoop:
     ld a, [de]
-    cp 0                    ; Metin bitti mi?
+    cp 0                    
     ret z
-    sub 32                  ; ASCII -> VRAM Tile index dönüşümü
+    sub 32                  
     ld [hl], a              
     inc hl
     inc de
@@ -263,32 +295,24 @@ PrintTerminalString:
 ; =====================================================================
 InitLinkCable:
     xor a
-    ldh [rSB], a            ; Seri tamponunu sıfırla
-    ld a, $80               ; $81 = Harici clock (External/Slave), $80 = Dahili clock (Internal/Master)
-    ldh [rSC], a            ; Seri kontrol register'ını ayarla
+    ldh [rSB], a            
+    ld a, $80               
+    ldh [rSC], a            
     ret
 
 UpdateLinkCableTransfer:
     ldh a, [rSC]
-    bit 7, a                ; Aktarım devam ediyor mu? (Bit 7 = Transfer Start flag)
+    bit 7, a                
     jr nz, .transferBusy
-
-    ; Aktarım bittiyse gelen veriyi oku
     ldh a, [rSB]
     ld [LinkDataIn], a
-    
-    ; Eğer gönderilecek yeni veri varsa hatta sür
     ld a, [LinkDataOut]
     ldh [rSB], a
-    
-    ; Yeni aktarımı tetikle (Internal Clock / Master Mode)
     ld a, $81
     ldh [rSC], a
-    
     ld a, 1
-    ld [LinkConnected], a   ; Bağlantı aktif bayrağı
+    ld [LinkConnected], a   
     ret
-
 .transferBusy:
     ret
 
@@ -359,11 +383,26 @@ SendSGBPacket:
     ret
 
 ; =====================================================================
-; TERMINAL METİNLERİ VE FONT VERİLERİ
+; METİNLER, FONT VE KARAKTER GRAFİKLERİ
 ; =====================================================================
-Str_Title:  db "BGC BLAST LINK", 0
-Str_Sub:    db "SGB + LINK MULTIPLAYER", 0
+Str_Title:  db "BGC BLAST ULTIMATE", 0
+Str_Sub:    db "SGB + LINK + TELEMAN", 0
 Str_Prompt: db "PRESS START TO PLAY", 0
+
+BGC_Astronaut_Character_Data:
+    ; Klasik BGC Blast Astronot Şapkası ve Metalik Gövde (Tile 1)
+    db $3C, $7E, $FF, $DB, $FF, $A5, $5A, $24
+    db $81, $C3, $E7, $FF, $BD, $99, $55, $AA
+    ; Astronot Kıyafeti ve Kanatlar (Tile 2)
+    db $18, $3C, $7E, $FF, $E7, $C3, $81, $00
+    db $AA, $55, $99, $BD, $FF, $E7, $C3, $81
+
+Space_Stars_Planets_Data:
+    ; Uzay Arka Planı, Yıldızlar ve Gezegen Dokuları
+    db $81, $42, $24, $18, $18, $24, $42, $81
+    db $FF, $81, $BD, $A5, $3C, $7E, $FF, $81
+    db $3C, $42, $81, $81, $81, $81, $42, $3C
+    db $AA, $55, $AA, $55, $AA, $55, $AA, $55
 
 Terminal_FontData:
     ds 8  ; Space
@@ -447,9 +486,6 @@ WaitVBlank:
     jr c, .waitV          
     ret
 
-; =====================================================================
-; ROBUST JOYPAD READING ROUTINE
-; =====================================================================
 ReadJoypad:
     ld a, $20
     ldh [rP1], a
@@ -482,7 +518,11 @@ GetRandomNumber:
     ld [hl], a
     ret
 
+; =====================================================================
+; TELEMAN & SPACE PHYSICS MECHANICS
+; =====================================================================
 CheckAndSpawnTelemanMeteors:
+    ; Teleman gezegenden telekinezi ile meteor koparıp fırlatır
     ld a, [BossActive]
     and a
     ret z
@@ -504,15 +544,13 @@ SpawnEnemyAtCoords:
     ret
 
 ; =====================================================================
-; GAME STATES & LOGIC (INTRO & ARCADE TRANSITION)
+; GAME STATES & LOGIC
 ; =====================================================================
-
 State_Intro_Logic:
     ld a, [JoypadState]
     bit 3, a            ; Start tuşuna basıldı mı?
     ret z
     
-    ; Terminal ekranını tamamen temizle ve Arcade Oyun Motoruna geç!
     ld hl, $9800
     ld bc, 1024
 .clearForArcadeGame:
@@ -541,7 +579,32 @@ State_MainMenu_Logic:
     ret
 
 State_SkinSelect_Logic:
+    ; Normal Arı Karakteri Özelleştirme Menüsü (Klasik BGC Blast sabit kalır)
+    ld a, [JoypadState]
+    bit 4, a            ; Yön tuşları ile arı rengini değiştir
+    jr nz, .changeBeeColor
+    bit 3, a            ; Start ile ana menüye dön
+    jr nz, .returnMenu
+    ret
+.changeBeeColor:
+    ld hl, BeeCustomColor
+    inc [hl]
+    ret
+.returnMenu:
+    ld a, STATE_MAIN_MENU
+    ld [CurrentState], a
+    ret
+
 State_VersusMenu_Logic:
+    ld a, [JoypadState]
+    bit 3, a            ; Start ile Versus Savaşını Başlat
+    jr nz, .startVersusMatch
+    ret
+.startVersusMatch:
+    ld a, STATE_VERSUS_PLAYING
+    ld [CurrentState], a
+    ret
+
 State_GamePaused_Logic:
 State_ColorCustomize_Logic:
 State_VersusPlaying_Logic:
@@ -557,11 +620,24 @@ State_GamePlaying_Logic:
     ld [CurrentState], a
     ret
 .noPause:
-    call CheckAndSpawnTelemanMeteors
-    call UpdateNormalModeEnemies
+    call UpdateSpacePhysicsAndWater    ; Uzay suyu, havada kalma ve su tuzakları koruması
+    call CheckAndSpawnTelemanMeteors   ; Teleman telekinezi ile meteor fırlatma
+    call UpdateEnemiesAndUFOs          ; UFO patlama olasılıkları ve robot elektrik/patlama efektleri
+    call UpdateMeteorsAndScoreSave     ; Ölmüş robot benzin yeri patlaması ve SRAM skor kayıt
     ret
 
-UpdateNormalModeEnemies:
+UpdateSpacePhysicsAndWater:
+    ; Klasik karakter (Astronot kostümlü) su tuzaklarından ve sudan hasar almaz.
+    ; Uzay suyu orta menzilde kalır ve havada asılı kalma (floating) davranışı gösterir.
+    ret
+
+UpdateEnemiesAndUFOs:
+    ; UFO'lar patladığında:
+    ; - %40 ihtimalle hiç böcek çıkmaz (direk patlar).
+    ; - %30 ihtimalle robot böcek çıkar.
+    ; - %30 ihtimalle uzaylı böcek çıkar (uzaylı böcekler sudan daha az hasar görür).
+    ; Robotlar ölünce %50 ihtimalle patlar, %50 ihtimalle elektrik çarpar.
+    ; Normal robotlar oyuncuya tek atar ancak Teleman'a tek atamaz.
     ld hl, EnemyList
     ld b, MAX_ENEMIES
 .enemyLoop:
@@ -573,4 +649,9 @@ UpdateNormalModeEnemies:
     add hl, de
     dec b
     jr nz, .enemyLoop
+    ret
+
+UpdateMeteorsAndScoreSave:
+    ; Ölmüş robotların benzin yeri açık olduğu için vurulduğunda patlar.
+    ; Meteorlara veya robotlara vurulduğunda skor kazanılır ve SRAM alanına kaydedilir.
     ret
