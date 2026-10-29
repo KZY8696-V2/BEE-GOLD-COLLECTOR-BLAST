@@ -53,7 +53,7 @@ DEF AI_EXPERT               EQU 4
 
 ; --- Game Constants ---
 DEF MAX_PLAYER_HP           EQU 100
-DEF VERSUS_REGEN_INTERVAL   EQU 300  ; <-- Eksik olan sabit buraya eklendi
+DEF VERSUS_REGEN_INTERVAL   EQU 300  
 DEF VERSUS_REGEN_AMOUNT     EQU 5
 DEF MAX_ENEMIES             EQU 16
 DEF MAX_PLANETS             EQU 4
@@ -120,7 +120,7 @@ SECTION "Header", ROM0[$0100]
     db $01          ; Kartuş Tipi
     db $00          
     db $00          
-    db $01          
+    db $33          ; Düzeltildi: Standart Lisans Kodu ($33)
     db $33          
     db $00          
     db $00          
@@ -381,14 +381,16 @@ DetectSGBHardware:
     ld [IsSuperGameBoy], a
     ret
 
+; --- DÜZELTİLDİ: Güvenli VBlank Bekleme Rutini ---
+WaitVBanner:
 WaitVBlank:
     ldh a, [rLY]
     cp 144
-    jr nc, WaitVBlank
+    jr nc, WaitVBlank     ; 144 ve üzeriyse VBlank dışına çıkmasını bekle
 .waitV:
     ldh a, [rLY]
     cp 144
-    jr c, .waitV
+    jr c, .waitV          ; 144'ün altındaysa VBlank'e girmesini bekle
     ret
 
 ; =====================================================================
