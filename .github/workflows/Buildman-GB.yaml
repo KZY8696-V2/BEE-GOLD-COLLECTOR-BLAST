@@ -14,14 +14,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install RGBDS, Download hardware.inc and Compile
+      - name: Install RGBDS, Download hardware.inc and Compile All ROMs
         shell: pwsh
         run: |
           # 1. EN BAŞTA: hardware.inc dosyasını indir
           Write-Host "hardware.inc indiriliyor..."
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/gbdev/hardware.inc/master/hardware.inc" -OutFile "hardware.inc"
 
-          # 2. Çıktı klasörünü oluştur ve hardware.inc'i oraya da kopyala (Garanti olsun)
+          # 2. Çıktı klasörünü oluştur ve hardware.inc'i oraya da kopyala
           New-Item -ItemType Directory -Force -Path "rom_outputs"
           Copy-Item "hardware.inc" -Destination "rom_outputs/hardware.inc"
 
@@ -34,11 +34,25 @@ jobs:
           echo "$rgbdsPath" >> $env:GITHUB_PATH
           $env:Path += ";$rgbdsPath"
 
-          # 4. Derleme ve Mühürleme İşlemi
-          Write-Host "ROM Derleniyor..."
+          # 4. Ana Nesne Dosyasını Derle
+          Write-Host "Assembly Derleniyor..."
           rgbasm -i . -o main.o BGC-BLAST-GB.asm
-          rgblink -p 0xFF -m rom_outputs/bgc_blast.map -n rom_outputs/bgc_blast.sym -o rom_outputs/bgc_blast.gb main.o
-          rgbfix -v -p 0xFF -C -g rom_outputs/bgc_blast.gb
+
+          # --- 5. DMG SÜRÜMÜ (Orijinal Game Boy) ---
+          Write-Host "DMG ROM Derleniyor ve Mühürleniyor..."
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_DMG.map -n rom_outputs/bgc_blast_DMG.sym -o rom_outputs/bgc_blast_DMG.gb main.o
+          rgbfix -v -p 0xFF -C -g rom_outputs/bgc_blast_DMG.gb
+
+          # --- 6. CGB SÜRÜMÜ (Game Boy Color) ---
+          Write-Host "CGB ROM Derleniyor ve Mühürleniyor..."
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_CGB.map -n rom_outputs/bgc_blast_CGB.sym -o rom_outputs/bgc_blast_CGB.gb main.o
+          rgbfix -v -p 0xFF -c -C -g rom_outputs/bgc_blast_CGB.gb
+
+          # --- 7. ALL SÜRÜMÜ (Universal - DMG & CGB) ---
+          Write-Host "Universal (ALL) ROM Derleniyor ve Mühürleniyor..."
+          rgblink -p 0xFF -m rom_outputs/bgc_blast_ALL.map -n rom_outputs/bgc_blast_ALL.sym -o rom_outputs/bgc_blast_ALL.gb main.o
+          rgbfix -v -p 0xFF -cg -C -g rom_outputs/bgc_blast_ALL.gb
+
 
       - name: Upload ROM Artifacts
         uses: actions/upload-artifact@v4
