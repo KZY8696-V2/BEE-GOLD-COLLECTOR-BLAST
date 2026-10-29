@@ -1,41 +1,8 @@
 ; =====================================================================
-; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (FINAL FIXED VERSION)
+; BGC BLAST - GAME BOY / SGB / CGB MASTER ROM (HARDWARE.INC UYUMLU)
 ; =====================================================================
 
 INCLUDE "hardware.inc"
-
-; --- RGBDS Donanım ve Register Sabitleri (8-bit Offsetler) ---
-DEF rP1       EQU $00
-DEF rSB       EQU $01
-DEF rSC       EQU $02
-DEF rDIV      EQU $04
-DEF rTIMA     EQU $05
-DEF rTMA      EQU $06
-DEF rTAC      EQU $07
-DEF rIF       EQU $0F
-DEF rLCDC     EQU $40
-DEF rSTAT     EQU $41
-DEF rSCY      EQU $42
-DEF rSCX      EQU $43
-DEF rLY       EQU $44
-DEF rLYC      EQU $45
-DEF rDMA      EQU $46
-DEF rBGP      EQU $47
-DEF rOBP0     EQU $48
-DEF rOBP1     EQU $49
-DEF rWY       EQU $4A
-DEF rWX       EQU $4B
-DEF rIE       EQU $FF
-DEF rCPU      EQU $50
-
-DEF LCDCF_ON      EQU %10000000
-DEF LCDCF_WINON   EQU %00100000
-DEF LCDCF_WIN9800 EQU %01000000
-DEF LCDCF_BG9600  EQU %00010000
-DEF LCDCF_BG9800  EQU %00000000
-DEF LCDCF_OBJ16   EQU %00000100
-DEF LCDCF_OBJON   EQU %00000010
-DEF LCDCF_BGON    EQU %00000001
 
 ; --- Game States ---
 DEF STATE_INTRO             EQU 0  
@@ -204,7 +171,7 @@ MainLoop:
     jr MainLoop
 
 ; =====================================================================
-; SYSTEM INITIALIZATION (SAYAÇ TAŞMASI GİDERİLDİ)
+; SYSTEM INITIALIZATION
 ; =====================================================================
 InitSystem:
     ; DMG Renk Paletini Ayarla
