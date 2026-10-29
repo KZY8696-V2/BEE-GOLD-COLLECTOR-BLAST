@@ -120,7 +120,7 @@ SECTION "Header", ROM0[$0100]
     db $01          ; Kartuş Tipi
     db $00          
     db $00          
-    db $33          ; Düzeltildi: Standart Lisans Kodu ($33)
+    db $33          ; Standart Lisans Kodu ($33)
     db $33          
     db $00          
     db $00          
@@ -129,6 +129,16 @@ SECTION "Header", ROM0[$0100]
 EntryPoint:
     di
     ld sp, $FFFE
+
+    ; --- KRİTİK DÜZELTME: LCD Kapatılmadan Önce VBlank Beklenmeli ---
+.waitVBL_Startup:
+    ldh a, [rLY]
+    cp 144
+    jr nc, .waitVBL_Startup
+.waitVBL_Startup2:
+    ldh a, [rLY]
+    cp 144
+    jr c, .waitVBL_Startup2
 
     ; 1. LCD'yi Güvenli Kapat
     xor a
@@ -381,16 +391,14 @@ DetectSGBHardware:
     ld [IsSuperGameBoy], a
     ret
 
-; --- DÜZELTİLDİ: Güvenli VBlank Bekleme Rutini ---
-WaitVBanner:
 WaitVBlank:
     ldh a, [rLY]
     cp 144
-    jr nc, WaitVBlank     ; 144 ve üzeriyse VBlank dışına çıkmasını bekle
+    jr nc, WaitVBlank     
 .waitV:
     ldh a, [rLY]
     cp 144
-    jr c, .waitV          ; 144'ün altındaysa VBlank'e girmesini bekle
+    jr c, .waitV          
     ret
 
 ; =====================================================================
