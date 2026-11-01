@@ -16,16 +16,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Chocolatey kullanarak cc65 paketini resmi kaynaktan güvenle kur
-      - name: Install cc65 via Chocolatey
+      # 2. cc65'i GitHub Releases üzerinden doğrudan indir ve kur
+      - name: Download and Setup cc65 Binary
         run: |
-          choco install cc65 -y
-          # cc65 bin yolunu PATH değişkenine ekle
-          echo "C:\Program Files (x86)\cc65\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
-          # Alternatif yükleme yolları için environment kontrolü
-          if (Test-Path "C:\cc65\bin") { echo "C:\cc65\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append }
+          $url = "https://github.com/cc65/cc65/releases/latest/download/cc65-snapshot-win32.zip"
+          Write-Host "cc65 indiriliyor: $url"
+          Invoke-WebRequest -Uri $url -OutFile "cc65.zip"
+          
+          Write-Host "ZIP ayıklanıyor..."
+          Expand-Archive -Path "cc65.zip" -DestinationPath "C:\cc65_extracted"
+          
+          # Çıkan klasör yapısını bul ve bin dizinini PATH'e ekle
+          $binPath = (Get-ChildItem -Path "C:\cc65_extracted" -Recurse -Directory | Where-Object { $_.Name -eq "bin" }).FullName
+          Write-Host "cc65 bin yolu: $binPath"
+          echo $binPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
 
-      # 3. Yeni dosya adınızla (BGC_BLAST_NES.asm) ca65 ve ld65 ile derle
+      # 3. BGC_BLAST_NES.asm dosyasını ca65 ve ld65 ile derle
       - name: Compile NES ROM
         run: |
           ca65 BGC_BLAST_NES.asm -o bgc_blast_nes.o
