@@ -16,18 +16,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. cc65 Windows sürümünü GitHub üzerinden otomatik indir ve kur
-      - name: Download and Setup cc65 for Windows
+      # 2. Chocolatey kullanarak cc65 paketini resmi kaynaktan güvenle kur
+      - name: Install cc65 via Chocolatey
         run: |
-          Invoke-WebRequest -Uri "https://github.com/cc65/cc65/releases/download/V2.19/cc65-snapshot-win32.zip" -OutFile "cc65.zip"
-          Expand-Archive -Path "cc65.zip" -DestinationPath "."
-          $cc65Folder = Get-ChildItem -Directory | Where-Object { $_.Name -like "cc65*" }
-          echo "$PWD\$($cc65Folder.Name)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+          choco install cc65 -y
+          # cc65 bin yolunu PATH değişkenine ekle
+          echo "C:\Program Files (x86)\cc65\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+          # Alternatif yükleme yolları için environment kontrolü
+          if (Test-Path "C:\cc65\bin") { echo "C:\cc65\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append }
 
-      # 3. ca65 ve ld65 ile Windows ortamında derle
+      # 3. Yeni dosya adınızla (BGC_BLAST_NES.asm) ca65 ve ld65 ile derle
       - name: Compile NES ROM
         run: |
-          ca65 BGC_BLAST_NES.s -o bgc_blast_nes.o
+          ca65 BGC_BLAST_NES.asm -o bgc_blast_nes.o
           ld65 -C nes.cfg bgc_blast_nes.o -o bgc_blast.nes
 
       # 4. Oluşan ROM'u Artifact olarak yükle
