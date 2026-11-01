@@ -16,20 +16,65 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. cc65'i GitHub Releases üzerinden doğrudan indir ve kur
-      - name: Download and Setup cc65 Binary
+      # 2. cc65 Yükleme Adımları (Winget -> Choco -> Make + Source Code)
+      - name: Setup cc65 Toolchain
         run: |
-          $url = "https://github.com/cc65/cc65/releases/latest/download/cc65-snapshot-win32.zip"
-          Write-Host "cc65 indiriliyor: $url"
-          Invoke-WebRequest -Uri $url -OutFile "cc65.zip"
-          
-          Write-Host "ZIP ayıklanıyor..."
-          Expand-Archive -Path "cc65.zip" -DestinationPath "C:\cc65_extracted"
-          
-          # Çıkan klasör yapısını bul ve bin dizinini PATH'e ekle
-          $binPath = (Get-ChildItem -Path "C:\cc65_extracted" -Recurse -Directory | Where-Object { $_.Name -eq "bin" }).FullName
-          Write-Host "cc65 bin yolu: $binPath"
-          echo $binPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+          $installed = $false
+
+          # 1. DENEME: Winget ile Yükleme
+          Write-Host "1. Yöntem: Winget ile cc65 deneniyor..."
+          try {
+              winget install --id cc65.cc65 -e --accept-source-agreements --accept-package-agreements --silent
+              if ($LASTEXITCODE -eq 0) {
+                  $installed = $true
+                  Write-Host "Winget ile cc65 başarıyla kuruldu!"
+              }
+          } catch {
+              Write-Host "Winget başarısız oldu veya paket bulunamadı."
+          }
+
+          # 2. DENEME: Chocolatey ile Yükleme
+          if (-not $installed) {
+              Write-Host "2. Yöntem: Chocolatey (choco) ile cc65 deneniyor..."
+              try {
+                  choco install cc65 -y
+                  if ($LASTEXITCODE -eq 0) {
+                      $installed = $true
+                      Write-Host "Chocolatey ile cc65 başarıyla kuruldu!"
+                  }
+              } catch {
+                  Write-Host "Chocolatey ile yükleme başarısız oldu."
+              }
+          }
+
+          # 3. DENEME: Make + Source Code (Git Clone & Build)
+          if (-not $installed) {
+              Write-Host "3. Yöntem: Kaynak kod klonlanıyor ve Make ile derleniyor..."
+              git clone --depth 1 https://github.com/cc65/cc65.git C:\cc65_src
+              Set-Location C:\cc65_src
+              make
+              
+              if (Test-Path "C:\cc65_src\bin\ca65.exe") {
+                  $installed = $true
+                  echo "C:\cc65_src\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                  Write-Host "Make ile cc65 kaynak koddan başarıyla derlendi ve PATH'e eklendi!"
+              } else {
+                  Write-Error "Tüm kurulum yöntemleri başarısız oldu!"
+                  exit 1
+              }
+          }
+
+          # Olası varsayılan yükleme yollarını PATH'e ekle
+          $possiblePaths = @(
+              "C:\Program Files\cc65\bin",
+              "C:\Program Files (x86)\cc65\bin",
+              "C:\cc65\bin"
+          )
+          foreach ($p in $possiblePaths) {
+              if (Test-Path $p) {
+                  echo $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              }
+          }
 
       # 3. BGC_BLAST_NES.asm dosyasını ca65 ve ld65 ile derle
       - name: Compile NES ROM
@@ -37,7 +82,7 @@ jobs:
           ca65 BGC_BLAST_NES.asm -o bgc_blast_nes.o
           ld65 -C nes.cfg bgc_blast_nes.o -o bgc_blast.nes
 
-      # 4. Oluşan ROM'u Artifact olarak yükle
+      # 4. Derlenen .nes ROM dosyasını Artifact olarak yükle
       - name: Upload NES ROM
         uses: actions/upload-artifact@v4
         with:
