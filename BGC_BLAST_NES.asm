@@ -1,6 +1,6 @@
 ; =====================================================================
 ; BGC BLAST - ULTIMATE MASTER ROM (NES - STANDART SÜRÜM)
-; CC65 / ca65 Uyumlu - Harici nes.inc Gerektirmeyen Bağımsız Kod
+; ca65 / cc65 Uyumlu - Harici nes.inc Gerektirmeyen Bağımsız Kod
 ; =====================================================================
 
 ; --- Dahili PPU, APU ve Joypad Kayıt Adresleri ---
@@ -138,40 +138,40 @@ MainLoop:
 
     lda CurrentState
     cmp #STATE_INTRO
-    beq .st_intro
+    beq @st_intro
     cmp #STATE_MAIN_MENU
-    beq .st_main
+    beq @st_main
     cmp #STATE_PLAYING
-    beq .st_play
+    beq @st_play
     cmp #STATE_PAUSED
-    beq .st_pause
+    beq @st_pause
     cmp #STATE_SKIN_SELECT
-    beq .st_skin
+    beq @st_skin
     cmp #STATE_VERSUS_PLAYING
-    beq .st_vplay
+    beq @st_vplay
     cmp #STATE_COLOR_CUSTOMIZE
-    beq .st_color
+    beq @st_color
     jmp MainLoop
 
-.st_intro:
+@st_intro:
     jsr State_Intro_Logic
     jmp MainLoop
-.st_main:
+@st_main:
     jsr State_MainMenu_Logic     
     jmp MainLoop
-.st_play:
+@st_play:
     jsr State_GamePlaying_Logic  
     jmp MainLoop
-.st_pause:
+@st_pause:
     jsr State_GamePaused_Logic   
     jmp MainLoop
-.st_skin:
+@st_skin:
     jsr State_SkinSelect_Logic   
     jmp MainLoop
-.st_vplay:
+@st_vplay:
     jsr State_VersusPlaying_Logic 
     jmp MainLoop
-.st_color:
+@st_color:
     jsr State_ColorCustomize_Logic
     jmp MainLoop
 .endproc
@@ -300,12 +300,12 @@ MainLoop:
 .proc UpdateHealthRegeneration
     lda CurrentState
     cmp #STATE_PLAYING
-    beq .regenNormal
+    beq @regenNormal
     cmp #STATE_VERSUS_PLAYING
-    beq .regenVersus
+    beq @regenVersus
     rts
 
-.regenNormal:
+@regenNormal:
     lda PlayerHPTimer
     bne @skip_lo_norm
     dec PlayerHPTimer + 1
@@ -318,10 +318,10 @@ MainLoop:
 
     lda PlayerHP
     cmp #MAX_HP_STACK
-    bcs .resetNormalTimer
+    bcs @resetNormalTimer
     inc PlayerHP
 
-.resetNormalTimer:
+@resetNormalTimer:
     lda #<NORMAL_REGEN_FRAMES
     sta PlayerHPTimer
     lda #>NORMAL_REGEN_FRAMES
@@ -329,7 +329,7 @@ MainLoop:
 @done_norm:
     rts
 
-.regenVersus:
+@regenVersus:
     lda VersusRegenFrameCnt
     bne @skip_lo_v
     dec VersusRegenFrameCnt + 1
