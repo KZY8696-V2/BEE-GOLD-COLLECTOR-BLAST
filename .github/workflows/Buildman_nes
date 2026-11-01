@@ -1,0 +1,38 @@
+name: Build NES ROM for Windows
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Proje dosyalarını çek
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. cc65 Windows sürümünü GitHub üzerinden otomatik indir ve kur
+      - name: Download and Setup cc65 for Windows
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/cc65/cc65/releases/download/V2.19/cc65-snapshot-win32.zip" -OutFile "cc65.zip"
+          Expand-Archive -Path "cc65.zip" -DestinationPath "."
+          $cc65Folder = Get-ChildItem -Directory | Where-Object { $_.Name -like "cc65*" }
+          echo "$PWD\$($cc65Folder.Name)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+
+      # 3. ca65 ve ld65 ile Windows ortamında derle
+      - name: Compile NES ROM
+        run: |
+          ca65 BGC_BLAST_NES.s -o bgc_blast_nes.o
+          ld65 -C nes.cfg bgc_blast_nes.o -o bgc_blast.nes
+
+      # 4. Oluşan ROM'u Artifact olarak yükle
+      - name: Upload NES ROM
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgc-blast-windows-rom
+          path: bgc_blast.nes
