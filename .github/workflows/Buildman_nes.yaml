@@ -12,88 +12,28 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1. Proje dosyalarını çek
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. cc65 Yükleme Adımları: Winget -> Hata Verirse Choco -> Hata Verirse Make + Source Code
+      # Hazır cc65 Windows paketini güvenli mirror üzerinden anında indir ve kur
       - name: Setup cc65 Toolchain
         run: |
           $ErrorActionPreference = "Stop"
-          $installed = $false
+          Write-Host "cc65 araç seti indiriliyor..."
+          Invoke-WebRequest -Uri "https://github.com/V60/cc65-win32/raw/master/cc65.zip" -OutFile "cc65.zip"
+          Expand-Archive -Path "cc65.zip" -DestinationPath "C:\cc65"
+          
+          $binPath = "C:\cc65\bin"
+          echo $binPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+          Write-Host "cc65 PATH dizinine eklendi: $binPath"
 
-          # 1. DENEME: Winget ile Yükleme
-          Write-Host "1. Yöntem: Winget ile cc65 deneniyor..."
-          try {
-              winget install --id cc65.cc65 -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity
-              if ($LASTEXITCODE -eq 0) {
-                  $installed = $true
-                  Write-Host "Winget ile cc65 başarıyla kuruldu!"
-              } else {
-                  throw "Winget çıkış kodu hata gösteriyor: $LASTEXITCODE"
-              }
-          } catch {
-              Write-Host "Winget hatası alındı: $_"
-              Write-Host "İkinci yönteme (Chocolatey) geçiliyor..."
-          }
-
-          # 2. DENEME: Hata alındıysa Chocolatey ile Yükleme
-          if (-not $installed) {
-              try {
-                  Write-Host "2. Yöntem: Chocolatey (choco) ile cc65 deneniyor..."
-                  choco install cc65 -y
-                  if ($LASTEXITCODE -eq 0) {
-                      $installed = $true
-                      Write-Host "Chocolatey ile cc65 başarıyla kuruldu!"
-                  } else {
-                      throw "Choco çıkış kodu hata gösteriyor: $LASTEXITCODE"
-                  }
-              } catch {
-                  Write-Host "Chocolatey hatası alındı: $_"
-                  Write-Host "Üçüncü yönteme (Git Clone + Make) geçiliyor..."
-              }
-          }
-
-          # 3. DENEME: İkisi de hata verdiyse Kaynak Koddan Make ile Derleme
-          if (-not $installed) {
-              try {
-                  Write-Host "3. Yöntem: Kaynak kod klonlanıyor ve Make ile derleniyor..."
-                  git clone --depth 1 https://github.com/cc65/cc65.git C:\cc65_src
-                  Set-Location C:\cc65_src
-                  make
-                  
-                  if (Test-Path "C:\cc65_src\bin\ca65.exe") {
-                      $installed = $true
-                      echo "C:\cc65_src\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-                      Write-Host "Make ile cc65 kaynak koddan başarıyla derlendi ve PATH'e eklendi!"
-                  } else {
-                      throw "Make tamamlandı fakat ca65.exe bulunamadı!"
-                  }
-              } catch {
-                  Write-Error "Tüm kurulum yöntemleri hata verdi: $_"
-                  exit 1
-              }
-          }
-
-          # Olası varsayılan yükleme yollarını PATH'e ekle
-          $possiblePaths = @(
-              "C:\Program Files\cc65\bin",
-              "C:\Program Files (x86)\cc65\bin",
-              "C:\cc65\bin"
-          )
-          foreach ($p in $possiblePaths) {
-              if (Test-Path $p) {
-                  echo $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-              }
-          }
-
-      # 3. BGC_BLAST_NES.asm dosyasını ca65 ve ld65 ile derle
+      # ca65 ve ld65 ile BGC_BLAST_NES.asm dosyasını derle
       - name: Compile NES ROM
         run: |
           ca65 BGC_BLAST_NES.asm -o bgc_blast_nes.o
           ld65 -C nes.cfg bgc_blast_nes.o -o bgc_blast.nes
 
-      # 4. Derlenen .nes ROM dosyasını Artifact olarak yükle
+      # Oluşan ROM dosyasını Artifact olarak kaydet
       - name: Upload NES ROM
         uses: actions/upload-artifact@v4
         with:
